@@ -5,10 +5,28 @@ from grammar.expected_count import Expected_Count
 
 
 class PCFG:
-    def __init__(self, grammar_file: str, train_file: str):
-        self.sentences = self.read_train_file(train_file)
+    def __init__(self, grammar_file: str, probablity_file=""):
         self.grammar = CFG(grammar_file)
-        self.q = self.init_q()
+        if probablity_file == "":
+            self.q = self.init_q()
+        else:
+            self.q = self.read_pcfg_file(probablity_file)
+        print(self.q)
+
+    def read_pcfg_file(self, filename: str):
+        pcfg = []
+        with open(filename) as file:
+            for line in file:
+                line = line.strip().split(" -> ")
+                pcfg.append((line[0], line[1]))
+        q = defaultdict(float)
+        for rule in pcfg:
+            tmp = rule[1].split()
+            if len(tmp) == 2:
+                q[tuple([rule[0], tmp[0]])] = float(tmp[1])
+            elif len(tmp) == 3:
+                q[tuple([rule[0], tmp[0], tmp[1]])] = float(tmp[2])
+        return q
 
     def read_train_file(self, filename: str):
         sentences = []
@@ -53,8 +71,9 @@ class PCFG:
                     sum = sum + q[tuple([A, B, C])]
         return q
 
-    def estimate(self, iter_num=20):
+    def estimate(self, train_file: str, iter_num=20):
         q = self.q
+        self.sentences = self.read_train_file(train_file)
 
         for itration in range(1, iter_num + 1):
             print("Itration number:", itration)
@@ -105,6 +124,7 @@ class PCFG:
 
     def sentence_prob(self, sentence: str):
         P = defaultdict(float)
+        table = defaultdict(None)
 
         sentence = sentence.split(" ")
         length = len(sentence)
@@ -112,20 +132,28 @@ class PCFG:
         for i in range(1, length + 1):
             for A, w in self.grammar.unary_rules:
                 if w == sentence[i - 1]:
-                    P[i, i, A] = self.q.get((A, w))
+                    P[(i, i, A)] = self.q.get((A, w))
+                    table[(i, i, A)] = [(i, i, w)]
+                    table[(i, i, w)] = []
 
         for l in range(2, length + 1):
             for i in range(1, length + 2 - l):
                 j = i + l - 1
                 for k in range(i, j):
                     for A, B, C in self.grammar.binary_rules:
-                        if P[i, k, B] and P[k + 1, j, C]:
-                            P[i, j, A] = max(
-                                (P[i, k, B] * self.q.get((A, B, C)) * P[k + 1, j, C]),
-                                P[i, j, A],
-                            )
+                        if P[(i, k, B)] and P[(k + 1, j, C)]:
+                            if (
+                                P[(i, k, B)] * self.q.get((A, B, C)) * P[(k + 1, j, C)]
+                            ) > P[(i, j, A)]:
+                                P[(i, j, A)] = (
+                                    P[(i, k, B)]
+                                    * self.q.get((A, B, C))
+                                    * P[(k + 1, j, C)]
+                                )
+                                table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]   
 
-        return P[1, length, "S"]
+        return P[1, length, "S"], table
+
 
     def gen_sentence(self, symbol):
         tokens = []

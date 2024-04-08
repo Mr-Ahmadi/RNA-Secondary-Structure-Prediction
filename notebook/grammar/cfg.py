@@ -40,6 +40,7 @@ class CFG:
 
     def parsable(self, sentence: str):
         P = defaultdict(bool)
+        _P = defaultdict(bool)
 
         sentence = sentence.split(" ")
         length = len(sentence)
@@ -47,14 +48,17 @@ class CFG:
         for i in range(1, length + 1):
             for A, w in self.unary_rules:
                 if w == sentence[i - 1]:
-                    P[i, i, A] = True
+                    P[(i, i, A)] = True
+                    _P[(i ,i ,A)] = [(i ,i ,A)]
 
         for l in range(2, length + 1):
             for i in range(1, length + 2 - l):
                 j = i + l - 1
                 for k in range(i, j):
                     for A, B, C in self.binary_rules:
-                        if P[i, k, B] and P[k + 1, j, C]:
-                            P[i, j, A] = True
+                        if P[(i, k, B)] and P[(k + 1, j, C)]:
+                            P[(i, j, A)] = True
+                            _P[(i ,j ,A)] = [(i, k, B), (k + 1, j, C)]
 
-        return P[1, length, "S"]
+        print(_P)
+        return P[(1, length, "S")]

@@ -124,6 +124,7 @@ class PCFG:
 
     def sentence_prob(self, sentence: str):
         P = defaultdict(float)
+        table = defaultdict(None)
 
         sentence = sentence.split(" ")
         length = len(sentence)
@@ -132,6 +133,8 @@ class PCFG:
             for A, w in self.grammar.unary_rules:
                 if w == sentence[i - 1]:
                     P[(i, i, A)] = self.q.get((A, w))
+                    table[(i, i, A)] = [(i, i, w)]
+                    table[(i, i, w)] = []
 
         for l in range(2, length + 1):
             for i in range(1, length + 2 - l):
@@ -139,16 +142,25 @@ class PCFG:
                 for k in range(i, j):
                     for A, B, C in self.grammar.binary_rules:
                         if P[(i, k, B)] and P[(k + 1, j, C)]:
-                            P[(i, j, A)] = max(
-                                (
+                            if (
+                                P[(i, k, B)] * self.q.get((A, B, C)) * P[(k + 1, j, C)]
+                            ) > P[(i, j, A)]:
+                                P[(i, j, A)] = (
                                     P[(i, k, B)]
                                     * self.q.get((A, B, C))
                                     * P[(k + 1, j, C)]
-                                ),
-                                P[(i, j, A)],
-                            )
+                                )
 
-        return P[1, length, "S"]
+                                table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
+
+        
+
+        return P[1, length, "S"], table
+
+    def print_tree(self, table, start, end, non_terminal):
+        print(start, end, non_terminal)
+        for s, e, nt in table[(start, end, non_terminal)]:
+            self.print_tree(table, s, e, nt)
 
     def gen_sentence(self, symbol):
         tokens = []
