@@ -132,7 +132,7 @@ class PCFG:
         for i in range(1, length + 1):
             for A, w in self.grammar.unary_rules:
                 if w == sentence[i - 1]:
-                    P[(i, i, A)] = self.q.get((A, w))
+                    P[(i, i, A)] = self.q[(A, w)]
                     table[(i, i, A)] = [(i, i, w)]
                     table[(i, i, w)] = []
 
@@ -143,11 +143,11 @@ class PCFG:
                     for A, B, C in self.grammar.binary_rules:
                         if P[(i, k, B)] and P[(k + 1, j, C)]:
                             if (
-                                P[(i, k, B)] * self.q.get((A, B, C)) * P[(k + 1, j, C)]
+                                P[(i, k, B)] * self.q[(A, B, C)] * P[(k + 1, j, C)]
                             ) > P[(i, j, A)]:
                                 P[(i, j, A)] = (
                                     P[(i, k, B)]
-                                    * self.q.get((A, B, C))
+                                    * self.q[(A, B, C)]
                                     * P[(k + 1, j, C)]
                                 )
                                 table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]   
