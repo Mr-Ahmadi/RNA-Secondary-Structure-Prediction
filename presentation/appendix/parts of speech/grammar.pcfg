@@ -1,0 +1,14 @@
+S -> NP VP 1.0
+VP -> VP PP 0.4
+VP -> V NP 0.6
+PP -> P NP 1.0
+NP -> Det N 0.75
+VP -> eat 0.0
+VP -> fish 0.0
+NP -> they 0.25
+V -> eat 0.6666666666666666
+V -> fish 0.33333333333333326
+P -> with 1.0
+N -> fish 0.5
+N -> fork 0.5
+Det -> a 1.0
