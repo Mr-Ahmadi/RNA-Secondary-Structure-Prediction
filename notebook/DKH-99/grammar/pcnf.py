@@ -202,7 +202,7 @@ class PCNF:
                                                                 
                                 Prob = (P.get((i, k, B), 0)
                                         * self.q.get((A, B, C), 0)
-                                        * P.get((k + 1, j, C), 0)) * pow(.99809, flagged_count)
+                                        * P.get((k + 1, j, C), 0) * pow(.99809, flagged_count))
                                 
                                 if Prob > P.get((i, j, A), 0):
                                     P[(i, j, A)] = Prob
