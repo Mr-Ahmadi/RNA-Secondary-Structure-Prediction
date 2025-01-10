@@ -161,7 +161,7 @@ class PCNF:
         return P[1, length, "S"], table
     
 
-    def sentence_prob__(self, sentence: str):
+    def sentence_prob__(self, sentence: str, flag_ratio):
         # Split sentence into words and identify ignored ones
         words = sentence.strip().split(" ")
         filtered_sentence = [word for word in words if word != "$"]
@@ -202,7 +202,7 @@ class PCNF:
                                                                 
                                 Prob = (P.get((i, k, B), 0)
                                         * self.q.get((A, B, C), 0)
-                                        * P.get((k + 1, j, C), 0) * pow(.99, flagged_count))
+                                        * P.get((k + 1, j, C), 0) * pow(flag_ratio, flagged_count))
                                 
                                 if Prob > P.get((i, j, A), 0):
                                     P[(i, j, A)] = Prob
