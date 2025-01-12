@@ -126,7 +126,7 @@ class PCNF:
         return q
 
     def sentence_prob(self, sentence: str, star_ratio):
-        P = defaultdict(float)
+        P = defaultdict(lambda: float("-inf"))
         table = defaultdict(None)
         star = defaultdict(bool)
         
@@ -136,7 +136,7 @@ class PCNF:
         for i in range(1, length + 1):
             for A, w in self.grammar.unary_rules:
                 if w == sentence[i - 1]:
-                    P[(i, i, A)] = self.q.get((A, w), 0)
+                    P[(i, i, A)] = log(self.q.get((A, w), 0))
                     table[(i, i, A)] = [(i, i, w)]
                     table[(i, i, w)] = []
 
@@ -146,99 +146,29 @@ class PCNF:
                 j = i + l - 1
                 for k in range(i, j):
                     for A, B, C in self.grammar.binary_rules:
-                        if P.get((i, k, B), 0) and P.get((k + 1, j, C), 0):
+                        if (P.get((i, k, B), float("-inf")) != float("-inf")  
+                        and P.get((k + 1, j, C), float("-inf")) != float("-inf")):
                             if A.startswith("$") and (star.get((i, k, B), False) or star.get((k + 1, j, C), False)):
-                                if (
-                                    P.get((i, k, B), 0)
-                                    * self.q.get((A, B, C), 0)
-                                    * P.get((k + 1, j, C), 0) * star_ratio
-                                ) > P.get((i, j, A), 0):
-                                    P[(i, j, A)] = (
-                                        P.get((i, k, B), 0)
-                                        * (self.q.get((A, B, C), 0))
-                                        * P.get((k + 1, j, C), 0) * star_ratio
-                                    )
-                                    table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
-                                    if B.startswith("$") or C.startswith("$"):
-                                        star[(i, j, A)] = True
-                                    else:
-                                        star[(i, j, A)] = False                              
-                            else: 
-                                if (
-                                    P.get((i, k, B), 0)
-                                    * self.q.get((A, B, C), 0)
-                                    * P.get((k + 1, j, C), 0)
-                                ) > P.get((i, j, A), 0):
-                                    P[(i, j, A)] = (
-                                        P.get((i, k, B), 0)
-                                        * (self.q.get((A, B, C), 0))
-                                        * P.get((k + 1, j, C), 0)
-                                    )
-                                    table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
-                                    if B.startswith("$") or C.startswith("$"):
-                                        star[(i, j, A)] = True
-                                    else:
-                                        star[(i, j, A)] = False
+                                Prob = (P.get((i, k, B), float("-inf"))
+                                       + log(self.q.get((A, B, C), 0))
+                                       + P.get((k + 1, j, C), float("-inf")) 
+                                       + log(star_ratio))                            
+                            else:                                         
+                                Prob = (P.get((i, k, B), float("-inf"))
+                                       + log(self.q.get((A, B, C), 0))
+                                       + P.get((k + 1, j, C), float("-inf")))
+
+                                        
+                            if Prob > P.get((i, j, A), float("-inf")):
+                                P[(i, j, A)] = Prob
+                                table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
+                                if B.startswith("$") or C.startswith("$"):
+                                    star[(i, j, A)] = True
+                                else:
+                                    star[(i, j, A)] = False 
+                            
                                 
         return P[1, length, "S"], table
-    
-
-    # def sentence_prob__(self, sentence: str, flag_ratio):
-    #     # Split sentence into words and identify ignored ones
-    #     words = sentence.strip().split(" ")
-    #     filtered_sentence = [word for word in words if word != "$"]
-        
-    #     flagged_counts = []
-    #     counter = 0
-    #     for i in range(len(words)):
-    #         if words[i] == "$":
-    #             counter += 1
-    #         else:
-    #             flagged_counts.append(counter)
-        
-    #     length = len(filtered_sentence)
-
-    #     if length == 0:
-    #         return float(0), {}
-
-    #     P = defaultdict(float)
-    #     table = defaultdict(None)
-                    
-    #     for i in range(1, length + 1):
-    #         for A, w in self.grammar.unary_rules:
-    #             if w == filtered_sentence[i - 1]:
-    #                 P[(i, i, A)] = self.q.get((A, w), 0)
-    #                 table[(i, i, A)] = [(i, i, w)]
-    #                 table[(i, i, w)] = []
-                    
-
-    #     # Binary rules (off-diagonal cells)
-    #     for l in range(2, length + 1):  # Length of the span
-    #         for i in range(1, length + 2 - l):  # Start index
-    #             j = i + l - 1  # End index                
-    #             for k in range(i, j):
-    #                 for A, B, C in self.grammar.binary_rules:
-    #                     if P.get((i, k, B), 0) and P.get((k + 1, j, C), 0):
-    #                         if A.startswith("$"):
-    #                             flagged_count = flagged_counts[j - 1] - flagged_counts[i - 1]
-                                                                
-    #                             Prob = (P.get((i, k, B), 0)
-    #                                     * self.q.get((A, B, C), 0)
-    #                                     * P.get((k + 1, j, C), 0) * pow(flag_ratio, flagged_count))
-                                
-    #                             if Prob > P.get((i, j, A), 0):
-    #                                 P[(i, j, A)] = Prob
-    #                                 table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
-    #                         else:
-    #                             Prob = (P.get((i, k, B), 0)
-    #                                     * self.q.get((A, B, C), 0)
-    #                                     * P.get((k + 1, j, C), 0)) 
-                                
-    #                             if Prob > P.get((i, j, A), 0):
-    #                                 P[(i, j, A)] = Prob
-    #                                 table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
-                            
-    #     return P[1, length, "S"], table
     
     
     def sentence_prob__(self, sentence: str, star_ratio, flag_ratio):
@@ -269,14 +199,14 @@ class PCNF:
         if length == 0:
             return float(0), {}
         
-        P = defaultdict(float)
+        P = defaultdict(lambda: float("-inf"))
         star = defaultdict(bool)  
         table = defaultdict(None)
                     
         for i in range(1, length + 1):
             for A, w in self.grammar.unary_rules:
                 if w == filtered_sentence[i - 1]:
-                    P[(i, i, A)] = self.q.get((A, w), 0)
+                    P[(i, i, A)] = log(self.q.get((A, w), 0))
                     table[(i, i, A)] = [(i, i, w)]
                     table[(i, i, w)] = []
 
@@ -286,7 +216,8 @@ class PCNF:
                 j = i + l - 1  # End index                
                 for k in range(i, j):
                     for A, B, C in self.grammar.binary_rules:
-                        if P.get((i, k, B), 0) and P.get((k + 1, j, C), 0):
+                        if (P.get((i, k, B), float("-inf")) != float("-inf")  
+                        and P.get((k + 1, j, C), float("-inf")) != float("-inf")):
                             if A.startswith("$"):
                                 open_count = open_counts[j - 1] - open_counts[i - 1]
                                 close_count = close_counts[j - 1] - close_counts[i - 1]
@@ -294,22 +225,22 @@ class PCNF:
                                 flag_count = abs(open_count - close_count)
                                 
                                 if star.get((i, k, B), False) or star.get((k + 1, j, C), False):
-                                    Prob = (P.get((i, k, B), 0)
-                                            * self.q.get((A, B, C), 0)
-                                            * P.get((k + 1, j, C), 0) 
-                                            * pow(flag_ratio, flag_count) 
-                                            * star_ratio)
+                                    Prob = (P.get((i, k, B), float("-inf"))
+                                           + log(self.q.get((A, B, C), 0))
+                                           + P.get((k + 1, j, C), float("-inf")) 
+                                           + log(pow(flag_ratio, flag_count)) 
+                                           + log(star_ratio))
                                 else:                                                                
-                                    Prob = (P.get((i, k, B), 0)
-                                            * self.q.get((A, B, C), 0)
-                                            * P.get((k + 1, j, C), 0) 
-                                            * pow(flag_ratio, flag_count)) 
+                                    Prob = (P.get((i, k, B), float("-inf"))
+                                           + log(self.q.get((A, B, C), 0))
+                                           + P.get((k + 1, j, C), float("-inf")) 
+                                           + log(pow(flag_ratio, flag_count)))
                             else:
-                                Prob = (P.get((i, k, B), 0)
-                                        * self.q.get((A, B, C), 0)
-                                        * P.get((k + 1, j, C), 0)) 
+                                Prob = (P.get((i, k, B), float("-inf"))
+                                       + log(self.q.get((A, B, C), 0))
+                                       + P.get((k + 1, j, C), float("-inf")))
                                 
-                            if Prob > P.get((i, j, A), 0):
+                            if Prob > P.get((i, j, A), float("-inf")):
                                 P[(i, j, A)] = Prob
                                 table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
                                 if B.startswith("$") or C.startswith("$"):
@@ -342,44 +273,3 @@ class PCNF:
             )
         else:
             return next_symbol
-        
-        
-    # Via log-prob
-    # def sentence_prob(self, sentence: str):
-    #     P = defaultdict(lambda: float("-inf"))
-    #     table = defaultdict(None)
-
-    #     sentence = sentence.strip().split(" ")
-    #     length = len(sentence)
-
-    #     for i in range(1, length + 1):
-    #         for A, w in self.grammar.unary_rules:
-    #             if w == sentence[i - 1]:
-    #                 P[(i, i, A)] = log(self.q.get((A, w), 0))
-    #                 table[(i, i, A)] = [(i, i, w)]
-    #                 table[(i, i, w)] = []
-
-
-    #     for l in range(2, length + 1):
-    #         for i in range(1, length + 2 - l):
-    #             j = i + l - 1
-    #             for k in range(i, j):
-    #                 for A, B, C in self.grammar.binary_rules:
-    #                     if (P.get((i, k, B), float("-inf")) != float("-inf") 
-    #                     and P.get((k + 1, j, C), float("-inf")) != float("-inf")):
-    #                         if (
-    #                             P.get((i, k, B), float("-inf"))
-    #                             + log(self.q.get((A, B, C), 0))
-    #                             + P.get((k + 1, j, C), float("-inf"))
-    #                         ) > P.get((i, j, A), float("-inf")):
-    #                             P[(i, j, A)] = (
-    #                                 P.get((i, k, B), float("-inf"))
-    #                                 + log(self.q.get((A, B, C), 0))
-    #                                 + P.get((k + 1, j, C), float("-inf"))
-    #                             )
-    #                             table[(i, j, A)] = [(i, k, B), (k + 1, j, C)]
-                                
-    #                             if i == 1 and A == "S":
-    #                                 print(f"Substring (1, {j}) parsed.")
-
-    #     return P[1, length, "S"], table
