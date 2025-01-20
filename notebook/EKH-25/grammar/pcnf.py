@@ -177,28 +177,61 @@ class PCNF:
         return P[1, length, "S"], table
     
     
+    def calculate_mismatch(self, words):
+        n = len(words)
+
+        # Initialize 2D arrays for mismatch, netopen, and total mismatch
+        mismatch = [[0] * n for _ in range(n)]
+        netopen = [[0] * n for _ in range(n)]
+        total_mismatch = [[0] * n for _ in range(n)]
+
+        # Base case: substrings of length 1
+        for i in range(n):
+            if words[i] == "<":
+                mismatch[i][i] = 0
+                netopen[i][i] = 1  # One unmatched '<'
+            elif words[i] == ">":
+                mismatch[i][i] = 1  # One unmatched '>'
+                netopen[i][i] = 0
+            else:
+                mismatch[i][i] = 0
+                netopen[i][i] = 0
+            total_mismatch[i][i] = mismatch[i][i] + netopen[i][i]
+
+        # Substrings of length >= 2
+        for length in range(2, n + 1):
+            for i in range(n - length + 1):
+                j = i + length - 1
+
+                # Start by copying the values from the substring words[i:j]
+                mismatch[i][j] = mismatch[i][j - 1]
+                netopen[i][j] = netopen[i][j - 1]
+
+                # Incorporate the bracket at position j
+                if words[j] == "<":
+                    netopen[i][j] += 1  # Push one '<'
+                elif words[j] == ">":
+                    if netopen[i][j] > 0:
+                        netopen[i][j] -= 1  # Match with a previous '<'
+                    else:
+                        mismatch[i][j] += 1  # Unmatched '>'
+
+                total_mismatch[i][j] = mismatch[i][j] + netopen[i][j]
+
+        return total_mismatch
+    
     def sentence_prob__(self, sentence: str, start_ratio: float, accelerat_ratio: float, flag_ratio: float):
         # Split sentence into words and identify ignored ones
         words = sentence.strip().split(" ")
-        filtered_sentence = [word for word in words if (word != "<" and word != ">")]
+                
+        filtered_sentence = []
+        filtered_indices = []
+        for i, w in enumerate(words):
+            if w not in ("<", ">"):
+                filtered_sentence.append(w)
+                filtered_indices.append(i)
         
-        # print(filtered_sentence)
-        
-        open_counts = []
-        close_counts = []
-        
-        open_counter = 0
-        close_counter = 0
-        
-        for i in range(len(words)):
-            if words[i] == "<":
-                open_counter += 1
-                # print(open_counter)
-            elif words[i] == ">":
-                close_counter += 1
-            else:
-                open_counts.append(open_counter)
-                close_counts.append(close_counter)
+        total_mismatch = self.calculate_mismatch(words)
         
         length = len(filtered_sentence)
                 
@@ -225,11 +258,11 @@ class PCNF:
                         if (P.get((i, k, B), float("-inf")) != float("-inf")  
                         and P.get((k + 1, j, C), float("-inf")) != float("-inf")):
                             if A.startswith("$"):
-                                open_count = open_counts[j - 1] - open_counts[i - 1]
-                                close_count = close_counts[j - 1] - close_counts[i - 1]
-                                
-                                sign_count = abs(open_count - close_count)
-                                
+                                start_idx = filtered_indices[i-1]
+                                end_idx   = filtered_indices[j-1]
+
+                                sign_count = total_mismatch[start_idx][end_idx]
+                                                                
                                 if status.get((i, k, B), False) or status.get((k + 1, j, C), False):
                                     Prob = (P.get((i, k, B), float("-inf"))
                                            + log(self.q.get((A, B, C), 0))
