@@ -98,6 +98,18 @@ Used to estimate PCFG rule probabilities from aligned sequence-structure pairs.
 
 ---
 
+## 🧬 Parameter Optimization
+
+Optimal (Gap-Bracket) values from genetic algorithm:
+
+| Pass        | Start Ratio | Accelerate Ratio | Flag Ratio |
+| ----------- | ----------- | ---------------- | ---------- |
+| First Pass  | 0.19        | 1.48             | -          |
+| Second Pass | 0.88        | 1.78             | 0.98       |
+
+
+---
+
 ## 🧪 Results
 
 ### Accuracy Comparison
@@ -113,19 +125,6 @@ Used to estimate PCFG rule probabilities from aligned sequence-structure pairs.
 | RF01072     | 81.91              |
 | RF01737     | 78.40              |
 | **Average** | **82.35**          |
-
----
-
-
-## 🧬 Parameter Optimization
-
-Optimal values from genetic algorithm:
-
-| Pass        | Start Ratio | Accelerate Ratio | Flag Ratio |
-| ----------- | ----------- | ---------------- | ---------- |
-| First Pass  | 0.19        | 1.48             | -          |
-| Second Pass | 0.88        | 1.78             | 0.98       |
-
 
 ---
 
