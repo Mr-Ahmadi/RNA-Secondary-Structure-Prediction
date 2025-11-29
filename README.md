@@ -152,7 +152,7 @@ Optimal (Gap-Bracket) values from genetic algorithm:
 ## 📬 Contact
 
 **Ali Ahmadi Esfidi**
-Email: [mr-ahmadi2004@outlook.com](mailto:mr-ahmadi2004@outlook.com)
+Email: [aliahmadiesfidi@outlook.com](mailto:aliahmadiesfidi@outlook.com)
 GitHub: [Mr-Ahmadi](https://github.com/Mr-Ahmadi)
 LinkedIn: [Ali Ahmadi](https://linkedin.com/in/ali-ahmadi-esfidi-6a0848375)
 
