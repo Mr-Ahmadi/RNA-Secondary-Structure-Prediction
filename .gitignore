@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.out
+report/*.fdb_latexmk
+report/*.fls
+report/*.synctex.gz

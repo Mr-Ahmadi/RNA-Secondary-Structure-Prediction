@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ekh"
+version = "1.0.0"
+description = "Consensus RNA secondary structure prediction with an evolutionary KH-99 grammar and two-pass Gap-Bracket CYK"
+readme = "README.md"
+authors = [{ name = "Ali Ahmadi Esfidi" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+ekh = "ekh.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ekh = ["data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
