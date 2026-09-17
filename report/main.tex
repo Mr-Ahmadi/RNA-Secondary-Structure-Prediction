@@ -244,13 +244,6 @@ Tuning raises held-out F1 from 0.728 to 0.755. On this benchmark the three metho
 All results in this section are on the test set, which was scored once after the model, tuning method and settings had been fixed.
 
 \subsection{Accuracy}
-\begin{figure*}[t]
-    \centering
-    \includegraphics[width=0.78\textwidth]{images/accuracy.png}
-    \caption{Test-set F1 on all base pairs and on pseudoknotted pairs, with 95\% bootstrap intervals.}
-    \label{fig:accuracy}
-\end{figure*}
-
 \begin{table*}[t]
 \centering\small
 \setlength{\tabcolsep}{4.5pt}
@@ -270,11 +263,25 @@ IPknot & .803 & .716 & .757 & .140 & .094 & .113 & .319 & .809 & .707 & .773\\
 \label{tab:results}
 \end{table*}
 
-Table~\ref{tab:results} and Figure~\ref{fig:accuracy} summarise the test results.
+Table~\ref{tab:results} summarises the test results.
 
-\textbf{All base pairs.} \GB{} reaches F1 0.759\ci{0.723}{0.792}. The differences to RNAalifold ($-0.008$, 95\% CI $-0.034$ to $+0.015$) and IPknot ($+0.002$, $-0.019$ to $+0.022$) are not significant. \GB{} is more precise than RNAalifold (PPV 0.802 vs 0.789) and less sensitive (0.721 vs 0.747).
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\columnwidth]{images/accuracy_pairs.png}
+    \caption{Test-set F1 on all base pairs, with 95\% bootstrap intervals.}
+    \label{fig:accuracy-pairs}
+\end{figure}
 
-\textbf{Pseudoknots.} On pseudoknotted pairs \GB{} reaches F1 0.541\ci{0.425}{0.642}, against 0.113\ci{0.048}{0.186} for IPknot, a difference of $+0.429$ ($+0.297$ to $+0.541$). It predicts a pseudoknot in 60\% of the pseudoknotted alignments and in 6\% of the others; IPknot does so in 32\% and 19\%. On pseudoknotted alignments, \GB{} has the highest overall F1 (0.771 vs 0.709 for RNAalifold). On alignments without pseudoknots, RNAalifold is best (0.785 vs 0.755).
+\textbf{All base pairs.} \GB{} reaches F1 0.759\ci{0.723}{0.792} (Figure~\ref{fig:accuracy-pairs}). The differences to RNAalifold ($-0.008$, 95\% CI $-0.034$ to $+0.015$) and IPknot ($+0.002$, $-0.019$ to $+0.022$) are not significant. \GB{} is more precise than RNAalifold (PPV 0.802 vs 0.789) and less sensitive (0.721 vs 0.747).
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\columnwidth]{images/accuracy_pseudoknots.png}
+    \caption{Test-set F1 on pseudoknotted base pairs, with 95\% bootstrap intervals. RNAalifold and KH-99 CYK cannot predict pseudoknots.}
+    \label{fig:accuracy-pseudoknots}
+\end{figure}
+
+\textbf{Pseudoknots.} On pseudoknotted pairs \GB{} reaches F1 0.541\ci{0.425}{0.642} (Figure~\ref{fig:accuracy-pseudoknots}), against 0.113\ci{0.048}{0.186} for IPknot, a difference of $+0.429$ ($+0.297$ to $+0.541$). It predicts a pseudoknot in 60\% of the pseudoknotted alignments and in 6\% of the others; IPknot does so in 32\% and 19\%. On pseudoknotted alignments, \GB{} has the highest overall F1 (0.771 vs 0.709 for RNAalifold). On alignments without pseudoknots, RNAalifold is best (0.785 vs 0.755).
 
 \subsection{Ablations}
 \begin{table}[h]

@@ -4,7 +4,7 @@ Reads ``results/evaluation.json`` (written by ``ekh evaluate``). Alignments are
 resampled with replacement (10,000 bootstrap samples) and pooled measures are
 recomputed, giving 95% intervals and paired intervals for the difference to
 Gap-Bracket. Writes ``results/summary.json`` and, with matplotlib installed,
-``report/images/accuracy.png`` and ``report/images/runtime.png``.
+``report/images/accuracy_pairs.png``, ``accuracy_pseudoknots.png`` and ``runtime.png``.
 """
 
 import json
@@ -70,29 +70,35 @@ def plot(report: dict, summary: dict) -> None:
     test = summary["test"]
     methods = [m for m in FIGURE_METHODS if m in test]
 
-    # accuracy: pair F1 and pseudoknot-pair F1 with 95% bootstrap intervals
-    fig, axes = plt.subplots(1, 2, figsize=(6.6, 1.9), sharey=True)
-    for ax, (measure, title) in zip(axes, [("f1", "All base pairs: F1"), ("pk_f1", "Pseudoknotted pairs: F1")]):
+    # accuracy: one column-width figure per measure, with 95% bootstrap intervals
+    panels = {"accuracy_pairs.png": ("f1", "F1, all base pairs"),
+              "accuracy_pseudoknots.png": ("pk_f1", "F1, pseudoknotted base pairs")}
+    for filename, (measure, label) in panels.items():
+        fig, ax = plt.subplots(figsize=(3.3, 1.55))
         y = np.arange(len(methods))[::-1]
         for yi, m in zip(y, methods):
+            if measure == "pk_f1" and m in NESTED_ONLY:
+                ax.text(0.015, yi, "nested structures only", va="center", color=MUTED, style="italic",
+                        bbox={"facecolor": "white", "edgecolor": "none", "pad": 1.0})
+                continue
             value = test[m]["pooled"][measure]
             lo, hi = test[m][f"{measure}_ci95"]
-            if measure == "pk_f1" and m in NESTED_ONLY:
-                ax.text(0.015, yi, "nested structures only", va="center", color=MUTED, style="italic")
-                continue
             ax.barh(yi, value, height=0.62, color=FIGURE_METHODS[m], edgecolor="white", linewidth=2)
             ax.plot([lo, hi], [yi, yi], color=INK, linewidth=1)
-            ax.text(max(hi, value) + 0.015, yi, f"{value:.3f}", va="center", color=INK)
+            ax.text(max(hi, value) + 0.02, yi, f"{value:.3f}", va="center", color=INK)
         ax.set_yticks(y, methods)
-        ax.set_xlim(0, 1.08)
-        ax.set_title(title, loc="left", color=INK, fontsize=8.5)
+        ax.set_ylim(-0.55, len(methods) - 0.45)
+        ax.set_xlim(0, 1.12)
+        ax.set_xticks(np.arange(0, 1.01, 0.2))
+        ax.set_xlabel(label)
         ax.xaxis.grid(True, color=GRID, linewidth=0.6)
         ax.set_axisbelow(True)
         ax.tick_params(length=0)
         for side in ("top", "right", "left"):
             ax.spines[side].set_visible(False)
-    fig.tight_layout()
-    fig.savefig(ROOT / "report/images/accuracy.png", dpi=300)
+        fig.tight_layout(pad=0.3)
+        fig.savefig(ROOT / "report/images" / filename, dpi=300)
+        plt.close(fig)
 
     # running time against alignment length
     refs = report["sets"]["test"]["references"]

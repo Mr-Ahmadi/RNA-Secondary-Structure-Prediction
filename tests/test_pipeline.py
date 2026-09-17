@@ -87,6 +87,18 @@ def test_pattern_compression_matches_per_column_likelihoods():
     assert pair[i, j] == pytest.approx(model.evolution.column_log_likelihoods(two, tree)[1][0, 1])
 
 
+@pytest.fixture
+def small_grids(monkeypatch):
+    """Coarse grids, so the tuning logic is tested without scoring the full grid."""
+    from ekh import tune
+
+    grids = {"RATIO_GRID": (0.5, 1.0, 2.0), "WEIGHT_GRID": (0.8, 1.0), "PSEUDOKNOT_GRID": (1.0, 0.5)}
+    for name, grid in grids.items():
+        monkeypatch.setattr(tune, name, grid)
+    monkeypatch.setattr(tune, "GRIDS", (grids["RATIO_GRID"],) * 5 + (grids["WEIGHT_GRID"], grids["PSEUDOKNOT_GRID"]))
+    monkeypatch.setattr(tune, "NEUTRAL", tuple(g.index(1.0) for g in tune.GRIDS))
+
+
 def _toy_evaluator(model):
     from ekh.tune import Evaluator, Item
 
@@ -97,12 +109,13 @@ def _toy_evaluator(model):
     return Evaluator(model, items, jobs=1)
 
 
-def test_tuning_methods_never_lose_to_neutral():
-    from ekh.tune import METHODS, NEUTRAL, fit, shared_grid, to_decoding, to_point
+def test_tuning_methods_never_lose_to_neutral(small_grids):
+    from ekh import tune
+    from ekh.tune import METHODS, fit, shared_grid, to_decoding, to_point
 
     with _toy_evaluator(EKH.load()) as evaluator:
         everything = evaluator.everything
-        neutral = evaluator.objective([NEUTRAL], everything)[0]
+        neutral = evaluator.objective([tune.NEUTRAL], everything)[0]
         for method in METHODS:
             point = fit(method, evaluator, everything, fix_weight=True)
             assert evaluator.objective([point], everything)[0] >= neutral
@@ -113,7 +126,7 @@ def test_tuning_methods_never_lose_to_neutral():
         assert evaluator.objective([best], everything)[0] == evaluator.objective(grid, everything).max()
 
 
-def test_cross_validation_leaves_out_whole_families():
+def test_cross_validation_leaves_out_whole_families(small_grids):
     from ekh.tune import cross_validate
 
     with _toy_evaluator(EKH.load()) as evaluator:

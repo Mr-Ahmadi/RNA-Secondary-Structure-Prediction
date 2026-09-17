@@ -143,13 +143,8 @@ python scripts/build_benchmark.py              # data/benchmark/{training,tuning
 .venv/bin/ekh tune                             # CV-selected tuning; results/tuning_cv.json  (~17 min)
 .venv/bin/ekh tune --refinement-rounds 3 --dry-run --cv-output results/tuning_cv_refinement.json
 
-# baselines, in an isolated environment (never a runtime dependency)
-conda create -p .bench-env -c conda-forge -c bioconda python=3.12 viennarna=2.7.2 glpk pkg-config
-git clone https://github.com/satoken/ipknot .bench-env/src/ipknot   # built at commit dcaa369
-(cd .bench-env/src/ipknot && mkdir build && cd build && \
- PKG_CONFIG_PATH=$PWD/../../../lib/pkgconfig cmake -DCMAKE_BUILD_TYPE=Release .. && \
- sed -i '' 's/-fno-lto//g' CMakeFiles/ipknot.dir/link.txt && make)
-python scripts/run_baselines.py                # results/baselines/{tuning,test}.json
+scripts/setup_baselines.sh                     # RNAalifold 2.7.2 + IPknot 1.1.0 in .bench-env (~3 min; conda)
+python scripts/run_baselines.py                # results/baselines/{tuning,test}.json (~2 min)
 
 .venv/bin/ekh evaluate data/benchmark/tuning.json data/benchmark/test.json --output results/evaluation.json
 python scripts/summarise.py                    # CIs, subsets, timings, paper figures (pip install -e '.[figures]')
@@ -167,7 +162,7 @@ data/legacy/        the 2025 training families and 8-family validation/test sets
 results/            evaluations, baseline predictions, tuning cross-validation, summary
 report/             paper (LaTeX)
 tests/              unit tests, including exhaustive-search checks
-scripts/            data download, benchmark builder, baseline runner, result summary
+scripts/            data download, benchmark builder, baseline setup and runner, result summary
 archive/            original 2025 notebooks (KH-99 and EKH-25), kept for reference
 literature/         papers the method builds on
 presentation/       slides

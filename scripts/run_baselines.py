@@ -4,27 +4,28 @@
     IPknot      1.1.0, aligned mode: averaged McCaskill + RNAalifold pair
                 probabilities (``-e McCaskill -e Alifold``), pseudoknots allowed
 
-The tools come from the isolated environment ``.bench-env`` (see README).
+The tools come from the isolated environment built by ``scripts/setup_baselines.sh``.
 Output: ``results/baselines/<set>.json`` with, per tool, the predicted
 dot-bracket string and wall-clock seconds for every alignment.
+
+    python scripts/run_baselines.py [SET ...] [--env DIR] [--output-dir DIR]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV = ROOT / ".bench-env"
-IPKNOT = ENV / "src/ipknot/build/ipknot"
-RNAALIFOLD = ENV / "bin/RNAalifold"
+TOOL_PATHS = {"RNAalifold": "bin/RNAalifold", "IPknot": "src/ipknot/build/ipknot"}
+BINARIES: dict[str, Path] = {}
 
 
 def clustal(alignment: dict[str, str]) -> str:
@@ -44,13 +45,13 @@ def run(command: list[str], text: str) -> tuple[str, float]:
 
 
 def rnaalifold(alignment: dict[str, str]) -> tuple[str, float]:
-    out, seconds = run([str(RNAALIFOLD), "--noPS"], clustal(alignment))
+    out, seconds = run([str(BINARIES["RNAalifold"]), "--noPS"], clustal(alignment))
     structure = out.splitlines()[1].split()[0]
     return structure, seconds
 
 
 def ipknot(alignment: dict[str, str]) -> tuple[str, float]:
-    out, seconds = run([str(IPKNOT), "-e", "McCaskill", "-e", "Alifold"], clustal(alignment))
+    out, seconds = run([str(BINARIES["IPknot"]), "-e", "McCaskill", "-e", "Alifold"], clustal(alignment))
     lines = [line for line in out.splitlines() if line and not line.startswith(">")]
     structure = lines[-1]
     return structure, seconds
@@ -59,10 +60,15 @@ def ipknot(alignment: dict[str, str]) -> tuple[str, float]:
 TOOLS = {"RNAalifold": rnaalifold, "IPknot": ipknot}
 
 
-def main(sets: list[str]) -> None:
-    out_dir = ROOT / "results/baselines"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for set_path in sets:
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("sets", nargs="*", default=["data/benchmark/tuning.json", "data/benchmark/test.json"])
+    parser.add_argument("--env", default=ROOT / ".bench-env", type=Path, help="environment from setup_baselines.sh")
+    parser.add_argument("--output-dir", default=ROOT / "results/baselines", type=Path)
+    args = parser.parse_args()
+    BINARIES.update({tool: args.env / path for tool, path in TOOL_PATHS.items()})
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for set_path in args.sets:
         data = json.loads(Path(set_path).read_text())
         result = {}
         for tool, predict in TOOLS.items():
@@ -74,8 +80,8 @@ def main(sets: list[str]) -> None:
                     raise ValueError(f"{tool} returned an invalid structure for {name}: {structure!r}")
             result[tool] = {name: {"structure": s, "seconds": t} for name, (s, t) in predictions.items()}
             print(f"{Path(set_path).stem}: {tool} done ({sum(t for _, t in predictions.values()):.1f} s total)")
-        (out_dir / f"{Path(set_path).stem}.json").write_text(json.dumps(result, indent=1) + "\n")
+        (args.output_dir / f"{Path(set_path).stem}.json").write_text(json.dumps(result, indent=1) + "\n")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ["data/benchmark/tuning.json", "data/benchmark/test.json"])
+    main()
