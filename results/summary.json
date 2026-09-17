@@ -1,0 +1,716 @@
+{
+ "tuning": {
+  "KH-99 CYK": {
+   "pooled": {
+    "ppv": 0.7764030048608043,
+    "sensitivity": 0.7093257973354865,
+    "f1": 0.7413502109704642,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.678,
+    0.798
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0305,
+    "ci95": [
+     0.007,
+     0.058
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.6751,
+    "ci95": [
+     0.518,
+     0.792
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7444444444444445,
+   "f1_nested_alignments": 0.740625,
+   "seconds": {
+    "total": 1.44,
+    "median_ms": 11.2,
+    "max_ms": 72.6
+   }
+  },
+  "Gap-Bracket": {
+   "pooled": {
+    "ppv": 0.8079470198675497,
+    "sensitivity": 0.7387969317723052,
+    "f1": 0.7718262336566849,
+    "pk_ppv": 0.6938110749185668,
+    "pk_sensitivity": 0.6574074074074074,
+    "pk_f1": 0.6751188589540412,
+    "pk_detection_sensitivity": 0.7272727272727273,
+    "pk_detection_specificity": 0.9487179487179487
+   },
+   "f1_ci95": [
+    0.708,
+    0.825
+   ],
+   "pk_f1_ci95": [
+    0.518,
+    0.792
+   ],
+   "f1_pseudoknotted_alignments": 0.8432203389830508,
+   "f1_nested_alignments": 0.7540810953133228,
+   "seconds": {
+    "total": 1.56,
+    "median_ms": 12.6,
+    "max_ms": 76.4
+   }
+  },
+  "Gap-Bracket, nested layer only": {
+   "pooled": {
+    "ppv": 0.8118948824343015,
+    "sensitivity": 0.7109406540169559,
+    "f1": 0.758071459319845,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.695,
+    0.811
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0138,
+    "ci95": [
+     0.005,
+     0.024
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.6751,
+    "ci95": [
+     0.518,
+     0.792
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7580645161290323,
+   "f1_nested_alignments": 0.7580730545262043,
+   "seconds": {
+    "total": 1.45,
+    "median_ms": 10.7,
+    "max_ms": 122.9
+   }
+  },
+  "Gap-Bracket, minimum hairpin 2": {
+   "pooled": {
+    "ppv": 0.8023663453111306,
+    "sensitivity": 0.7392006459426725,
+    "f1": 0.7694893885270014,
+    "pk_ppv": 0.6938110749185668,
+    "pk_sensitivity": 0.6574074074074074,
+    "pk_f1": 0.6751188589540412,
+    "pk_detection_sensitivity": 0.7272727272727273,
+    "pk_detection_specificity": 0.9487179487179487
+   },
+   "f1_ci95": [
+    0.706,
+    0.823
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0023,
+    "ci95": [
+     0.001,
+     0.004
+    ]
+   },
+   "pk_f1_ci95": [
+    0.518,
+    0.792
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0,
+    "ci95": [
+     0.0,
+     0.0
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.8405491024287223,
+   "f1_nested_alignments": 0.7518363064008394,
+   "seconds": {
+    "total": 1.55,
+    "median_ms": 12.1,
+    "max_ms": 76.0
+   }
+  },
+  "Gap-Bracket, evidence weight 1": {
+   "pooled": {
+    "ppv": 0.7781484570475397,
+    "sensitivity": 0.7533306419055309,
+    "f1": 0.7655384615384615,
+    "pk_ppv": 0.5946745562130178,
+    "pk_sensitivity": 0.6203703703703703,
+    "pk_f1": 0.6072507552870091,
+    "pk_detection_sensitivity": 0.6818181818181818,
+    "pk_detection_specificity": 0.9230769230769231
+   },
+   "f1_ci95": [
+    0.704,
+    0.821
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0063,
+    "ci95": [
+     -0.012,
+     0.027
+    ]
+   },
+   "pk_f1_ci95": [
+    0.443,
+    0.736
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0679,
+    "ci95": [
+     -0.009,
+     0.163
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.8328141225337488,
+   "f1_nested_alignments": 0.7489775051124744,
+   "seconds": {
+    "total": 1.53,
+    "median_ms": 11.6,
+    "max_ms": 76.3
+   }
+  },
+  "Gap-Bracket, separate ratios, coordinate ascent": {
+   "pooled": {
+    "ppv": 0.8093763821318001,
+    "sensitivity": 0.7387969317723052,
+    "f1": 0.7724778387505277,
+    "pk_ppv": 0.6513761467889908,
+    "pk_sensitivity": 0.6574074074074074,
+    "pk_f1": 0.6543778801843319,
+    "pk_detection_sensitivity": 0.7272727272727273,
+    "pk_detection_specificity": 0.9358974358974359
+   },
+   "f1_ci95": [
+    0.709,
+    0.826
+   ],
+   "f1_difference_to_model": {
+    "mean": -0.0007,
+    "ci95": [
+     -0.004,
+     0.002
+    ]
+   },
+   "pk_f1_ci95": [
+    0.495,
+    0.779
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0207,
+    "ci95": [
+     -0.042,
+     0.096
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.8441145281018028,
+   "f1_nested_alignments": 0.7546772068511199,
+   "seconds": {
+    "total": 1.55,
+    "median_ms": 12.2,
+    "max_ms": 96.3
+   }
+  },
+  "Gap-Bracket, separate ratios, genetic algorithm": {
+   "pooled": {
+    "ppv": 0.7827170751973411,
+    "sensitivity": 0.7605974969721437,
+    "f1": 0.7714987714987716,
+    "pk_ppv": 0.6344410876132931,
+    "pk_sensitivity": 0.6481481481481481,
+    "pk_f1": 0.6412213740458015,
+    "pk_detection_sensitivity": 0.7272727272727273,
+    "pk_detection_specificity": 0.9358974358974359
+   },
+   "f1_ci95": [
+    0.709,
+    0.825
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0003,
+    "ci95": [
+     -0.012,
+     0.012
+    ]
+   },
+   "pk_f1_ci95": [
+    0.482,
+    0.767
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0339,
+    "ci95": [
+     -0.034,
+     0.115
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.8472803347280334,
+   "f1_nested_alignments": 0.7530549898167006,
+   "seconds": {
+    "total": 1.64,
+    "median_ms": 12.4,
+    "max_ms": 88.5
+   }
+  },
+  "RNAalifold": {
+   "pooled": {
+    "ppv": 0.7513877874702617,
+    "sensitivity": 0.7650383528461849,
+    "f1": 0.7581516303260653,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.701,
+    0.81
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0137,
+    "ci95": [
+     -0.016,
+     0.043
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.6751,
+    "ci95": [
+     0.518,
+     0.792
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7136752136752137,
+   "f1_nested_alignments": 0.7683977356633029,
+   "seconds": {
+    "total": 1.53,
+    "median_ms": 10.4,
+    "max_ms": 124.4
+   }
+  },
+  "IPknot": {
+   "pooled": {
+    "ppv": 0.7912813738441216,
+    "sensitivity": 0.7254743641501816,
+    "f1": 0.7569502948609941,
+    "pk_ppv": 0.03488372093023256,
+    "pk_sensitivity": 0.018518518518518517,
+    "pk_f1": 0.024193548387096774,
+    "pk_detection_sensitivity": 0.045454545454545456,
+    "pk_detection_specificity": 0.7564102564102564
+   },
+   "f1_ci95": [
+    0.699,
+    0.808
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0149,
+    "ci95": [
+     -0.015,
+     0.044
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.081
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.6509,
+    "ci95": [
+     0.488,
+     0.772
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7318181818181818,
+   "f1_nested_alignments": 0.7626680455015512,
+   "seconds": {
+    "total": 19.71,
+    "median_ms": 104.3,
+    "max_ms": 3236.1
+   }
+  }
+ },
+ "test": {
+  "KH-99 CYK": {
+   "pooled": {
+    "ppv": 0.7909830007390983,
+    "sensitivity": 0.7062161805463903,
+    "f1": 0.7461999721098871,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.713,
+    0.777
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.013,
+    "ci95": [
+     -0.003,
+     0.028
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.5413,
+    "ci95": [
+     0.425,
+     0.642
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.6997953814674072,
+   "f1_nested_alignments": 0.7607361963190185,
+   "seconds": {
+    "total": 5.65,
+    "median_ms": 13.0,
+    "max_ms": 178.8
+   }
+  },
+  "Gap-Bracket": {
+   "pooled": {
+    "ppv": 0.8019089574155653,
+    "sensitivity": 0.7207337996568562,
+    "f1": 0.7591575728087857,
+    "pk_ppv": 0.5956873315363881,
+    "pk_sensitivity": 0.49607182940516276,
+    "pk_f1": 0.541334966319657,
+    "pk_detection_sensitivity": 0.5957446808510638,
+    "pk_detection_specificity": 0.9396984924623115
+   },
+   "f1_ci95": [
+    0.723,
+    0.792
+   ],
+   "pk_f1_ci95": [
+    0.425,
+    0.642
+   ],
+   "f1_pseudoknotted_alignments": 0.7714685314685314,
+   "f1_nested_alignments": 0.755086940436552,
+   "seconds": {
+    "total": 6.47,
+    "median_ms": 14.5,
+    "max_ms": 230.9
+   }
+  },
+  "Gap-Bracket, nested layer only": {
+   "pooled": {
+    "ppv": 0.8043875685557587,
+    "sensitivity": 0.6968457173023624,
+    "f1": 0.7467647266812814,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.71,
+    0.779
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0124,
+    "ci95": [
+     0.006,
+     0.019
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.5413,
+    "ci95": [
+     0.425,
+     0.642
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7131001778304683,
+   "f1_nested_alignments": 0.7573140150459738,
+   "seconds": {
+    "total": 5.73,
+    "median_ms": 12.7,
+    "max_ms": 181.2
+   }
+  },
+  "Gap-Bracket, minimum hairpin 2": {
+   "pooled": {
+    "ppv": 0.7933536496879988,
+    "sensitivity": 0.7215256697901544,
+    "f1": 0.7557367984517556,
+    "pk_ppv": 0.5834464043419267,
+    "pk_sensitivity": 0.4826038159371493,
+    "pk_f1": 0.5282555282555282,
+    "pk_detection_sensitivity": 0.5957446808510638,
+    "pk_detection_specificity": 0.9346733668341709
+   },
+   "f1_ci95": [
+    0.72,
+    0.788
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0034,
+    "ci95": [
+     0.001,
+     0.006
+    ]
+   },
+   "pk_f1_ci95": [
+    0.41,
+    0.632
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0131,
+    "ci95": [
+     0.0,
+     0.036
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7667874059626637,
+   "f1_nested_alignments": 0.7520911848515489,
+   "seconds": {
+    "total": 6.34,
+    "median_ms": 14.5,
+    "max_ms": 197.4
+   }
+  },
+  "Gap-Bracket, evidence weight 1": {
+   "pooled": {
+    "ppv": 0.7907140841095117,
+    "sensitivity": 0.7394747261449123,
+    "f1": 0.764236513673873,
+    "pk_ppv": 0.5886736214605067,
+    "pk_sensitivity": 0.44332210998877664,
+    "pk_f1": 0.5057618437900128,
+    "pk_detection_sensitivity": 0.5319148936170213,
+    "pk_detection_specificity": 0.949748743718593
+   },
+   "f1_ci95": [
+    0.73,
+    0.796
+   ],
+   "f1_difference_to_model": {
+    "mean": -0.0051,
+    "ci95": [
+     -0.015,
+     0.004
+    ]
+   },
+   "pk_f1_ci95": [
+    0.393,
+    0.601
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0356,
+    "ci95": [
+     -0.012,
+     0.09
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7588888888888888,
+   "f1_nested_alignments": 0.7659766790201573,
+   "seconds": {
+    "total": 6.32,
+    "median_ms": 14.6,
+    "max_ms": 189.4
+   }
+  },
+  "Gap-Bracket, separate ratios, coordinate ascent": {
+   "pooled": {
+    "ppv": 0.802210759027266,
+    "sensitivity": 0.7183581892569618,
+    "f1": 0.7579724272385462,
+    "pk_ppv": 0.6135057471264368,
+    "pk_sensitivity": 0.4792368125701459,
+    "pk_f1": 0.5381222432262129,
+    "pk_detection_sensitivity": 0.574468085106383,
+    "pk_detection_specificity": 0.9396984924623115
+   },
+   "f1_ci95": [
+    0.722,
+    0.79
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0012,
+    "ci95": [
+     -0.001,
+     0.003
+    ]
+   },
+   "pk_f1_ci95": [
+    0.426,
+    0.633
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.0032,
+    "ci95": [
+     -0.028,
+     0.037
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7658975801913337,
+   "f1_nested_alignments": 0.7553663952627683,
+   "seconds": {
+    "total": 6.32,
+    "median_ms": 14.7,
+    "max_ms": 183.3
+   }
+  },
+  "Gap-Bracket, separate ratios, genetic algorithm": {
+   "pooled": {
+    "ppv": 0.7827060305023087,
+    "sensitivity": 0.7382869209449651,
+    "f1": 0.7598478674273296,
+    "pk_ppv": 0.6407185628742516,
+    "pk_sensitivity": 0.48035914702581367,
+    "pk_f1": 0.5490699166132136,
+    "pk_detection_sensitivity": 0.574468085106383,
+    "pk_detection_specificity": 0.949748743718593
+   },
+   "f1_ci95": [
+    0.724,
+    0.793
+   ],
+   "f1_difference_to_model": {
+    "mean": -0.0007,
+    "ci95": [
+     -0.006,
+     0.005
+    ]
+   },
+   "pk_f1_ci95": [
+    0.436,
+    0.643
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": -0.0077,
+    "ci95": [
+     -0.043,
+     0.028
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.767100526170036,
+   "f1_nested_alignments": 0.7574912264914965,
+   "seconds": {
+    "total": 6.32,
+    "median_ms": 14.4,
+    "max_ms": 190.3
+   }
+  },
+  "RNAalifold": {
+   "pooled": {
+    "ppv": 0.7894516534114693,
+    "sensitivity": 0.7467335357001452,
+    "f1": 0.7674986435160065,
+    "pk_ppv": 0.0,
+    "pk_sensitivity": 0.0,
+    "pk_f1": 0.0,
+    "pk_detection_sensitivity": 0.0,
+    "pk_detection_specificity": 1.0
+   },
+   "f1_ci95": [
+    0.737,
+    0.797
+   ],
+   "f1_difference_to_model": {
+    "mean": -0.0083,
+    "ci95": [
+     -0.034,
+     0.015
+    ]
+   },
+   "pk_f1_ci95": [
+    0.0,
+    0.0
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.5413,
+    "ci95": [
+     0.425,
+     0.642
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7090069284064665,
+   "f1_nested_alignments": 0.7854609929078015,
+   "seconds": {
+    "total": 5.73,
+    "median_ms": 11.3,
+    "max_ms": 374.2
+   }
+  },
+  "IPknot": {
+   "pooled": {
+    "ppv": 0.8034947430771509,
+    "sensitivity": 0.7161145572126171,
+    "f1": 0.7572923935799023,
+    "pk_ppv": 0.13976705490848584,
+    "pk_sensitivity": 0.09427609427609428,
+    "pk_f1": 0.1126005361930295,
+    "pk_detection_sensitivity": 0.3191489361702128,
+    "pk_detection_specificity": 0.8090452261306533
+   },
+   "f1_ci95": [
+    0.725,
+    0.788
+   ],
+   "f1_difference_to_model": {
+    "mean": 0.0019,
+    "ci95": [
+     -0.019,
+     0.022
+    ]
+   },
+   "pk_f1_ci95": [
+    0.048,
+    0.186
+   ],
+   "pk_f1_difference_to_model": {
+    "mean": 0.4287,
+    "ci95": [
+     0.297,
+     0.541
+    ]
+   },
+   "f1_pseudoknotted_alignments": 0.7073525138041267,
+   "f1_nested_alignments": 0.7730737441454679,
+   "seconds": {
+    "total": 91.96,
+    "median_ms": 116.1,
+    "max_ms": 4558.7
+   }
+  }
+ }
+}

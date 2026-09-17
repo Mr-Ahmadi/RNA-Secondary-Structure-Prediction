@@ -1,6 +1,9 @@
 \documentclass[10pt, twocolumn]{article}
 
-\usepackage[top=1in, bottom=1in, left=0.9in, right=0.9in]{geometry}
+\usepackage[top=1in, bottom=1in, left=0.85in, right=0.85in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
 \usepackage{fancyhdr}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -17,18 +20,26 @@
 \definecolor{DarkGreen}{RGB}{0,70,110}
 \titleformat{\section}{\normalfont\Large\bfseries\color{DarkBlue}}{\thesection}{1em}{}
 \titleformat{\subsection}{\normalfont\large\bfseries\color{DarkGreen}}{\thesubsection}{.5em}{}
-\titlespacing{\section}{0pt}{*2}{*1.5}
-\titlespacing{\subsection}{0pt}{*1.5}{*1}
+\titlespacing{\section}{0pt}{*2}{*1.2}
+\titlespacing{\subsection}{0pt}{*1.4}{*0.8}
 \hypersetup{colorlinks=true, linkcolor=DarkBlue, citecolor=DarkBlue, urlcolor=DarkBlue}
+\captionsetup{font=small, labelfont=bf}
 
 \pagestyle{fancy}
-\fancyhead[L]{\textit{RNA Pairing Pattern Recognition}}
+\fancyhead[L]{\textit{Gap-Bracket: two-layer phylogenetic SCFG parsing}}
 \fancyhead[C]{}
-\fancyhead[R]{\textit{Ali Ahmadi Esfidi}}
+\fancyhead[R]{\textit{A. Ahmadi Esfidi}}
 \fancyfoot[C]{\thepage}
 
+\newcommand{\rinit}{\rho_{\mathrm{init}}}
+\newcommand{\rext}{\rho_{\mathrm{ext}}}
+\newcommand{\rcross}{\rho_{\mathrm{cross}}}
+\newcommand{\rpk}{\rho_{\mathrm{pk}}}
+\newcommand{\hmin}{h_{\min}}
+\newcommand{\GB}{Gap-Bracket}
+\newcommand{\ci}[2]{\,[#1,\,#2]}
 
-\title{\textbf{\textcolor{DarkBlue}{RNA Pairing Pattern Recognition Using Stochastic Context-Free Grammars and Evolutionary History}}}
+\title{\textbf{\textcolor{DarkBlue}{Gap-Bracket: Two-Layer Phylogenetic SCFG Parsing\\of RNA Consensus Structures with Pseudoknots}}}
 \author{\textbf{Ali Ahmadi Esfidi}}
 \date{\today}
 
@@ -36,269 +47,286 @@
 \maketitle
 
 \begin{abstract}
-We predict the consensus secondary structure of an RNA alignment, pseudoknots included, by combining the Knudsen--Hein (KH-99) stochastic context-free grammar with a phylogenetic model of single and paired columns. A \emph{Gap-Bracket CYK} parser scores each base pair with two ratios, one for helix starts and one for stacked pairs, and runs twice: the first pass finds the nested structure and the second searches the remaining columns for crossing pairs, with a ratio applied for every crossing. The method is implemented as a small NumPy package. The parser's recursions are checked against exhaustive search, and predicting an alignment takes 10--100\,ms, from 50 to over 10{,}000 times faster than our original implementation. On eight held-out Rfam families, the two-pass parser reaches a base-pair F1 of 0.804, compared with 0.669 for plain KH-99 CYK (bootstrap 95\% CI of the gain: 0.007--0.331).
+We present \GB{}, a method that predicts the consensus secondary structure of an RNA alignment, pseudoknots included. It combines the Knudsen--Hein (KH-99) stochastic context-free grammar with a phylogenetic model of unpaired and paired alignment columns, and parses the alignment into two nested layers: a first CYK pass predicts the nested structure, and a second pass predicts pseudoknotted pairs among the remaining columns at a tuned cost per pair. The substitution model and grammar are estimated from 337 Rfam families, and the decoding settings are tuned on 100 further families. The tuning method was selected by cross-validation grouped by Rfam clan. On a clan-disjoint test set of 246 Rfam alignments with literature-derived structures, 47 of them pseudoknotted, \GB{} reaches a base-pair F1 of 0.759 (95\% CI 0.723--0.792). That is statistically indistinguishable from RNAalifold (0.767) and IPknot (0.757). On pseudoknotted base pairs its F1 is 0.541, against 0.113 for IPknot. It detects a pseudoknot in 60\% of pseudoknotted alignments at a specificity of 94\%, and predicts an alignment in a median of 15\,ms.
 \end{abstract}
 
 \section{Introduction}
-RNA molecules take part in most major biological processes, from regulating gene expression to catalysing reactions. Their function depends on base pairing, which forms helical stems and loops. Many prediction methods ignore crossing interactions (pseudoknots), which limits their accuracy on structured RNAs.
+RNA function depends on base pairing, which forms helical stems and loops. When several homologous sequences are aligned, compensatory mutations reveal which columns pair, so the consensus structure of an alignment can be inferred more reliably than the structure of one sequence. Pseudoknots, in which pairs cross, occur in many functional RNAs, but most consensus predictors either exclude them or predict them poorly.
 
-This report extends the KH-99 \cite{knudsen1999} and Pfold \cite{knudsen2003} approach, which combines a structure grammar with a phylogenetic model of the alignment, in two ways. First, the CYK parser gets ratios that favour long helices. Second, a second parsing pass revisits the columns left unpaired and recovers crossing pairs. We describe the model precisely, fix several issues in our earlier implementation, and evaluate on held-out Rfam families against the KH-99 baseline, with confidence intervals.
+KH-99 \cite{knudsen1999} and Pfold \cite{knudsen2003} combine a stochastic context-free grammar (SCFG) with a phylogenetic model of the alignment. SCFGs describe nested structures only. \GB{} extends this approach to pseudoknots with a second parsing layer and asks whether such an extension is competitive. Our contributions are:
+\begin{enumerate}
+    \item \textbf{A two-layer parser} with helix initiation and extension ratios, a pseudoknot pair ratio and an evidence weight (Section~\ref{sec:model});
+    \item \textbf{A benchmark} of 683 Rfam alignments with literature-derived structures, split by clan into training, tuning and test sets, scored with pseudoknot-specific metrics against RNAalifold and IPknot (Section~\ref{sec:benchmark});
+    \item \textbf{A tuning protocol} that chooses between tuning methods by clan-grouped cross-validation (Section~\ref{sec:tuning});
+    \item \textbf{An evaluation} that separates overall accuracy, pseudoknot accuracy, ablations and running time, with bootstrap confidence intervals (Section~\ref{sec:results}).
+\end{enumerate}
 
 \section{Related Work}
-KH-99 \cite{knudsen1999} combined SCFGs with evolutionary information. Pfold \cite{knudsen2003} and PPfold \cite{sukosd2012ppfold} refined the approach with explicit phylogenetic trees, and PPfold parallelised it. Pseudoknots are outside the reach of context-free grammars; Stochastic Multiple Context-Free Grammars \cite{kato2006stochastic} and Pair Stochastic Tree Adjoining Grammars \cite{matsui2005pair} model them directly, at a higher polynomial cost. Knotify \cite{andrikos2023knotify} detects pseudoknots with syntactic pattern recognition. Deep-learning models such as E2Efold \cite{chen2022rna} and SPOT-RNA \cite{singh2019rna} predict pairing matrices directly, including crossing pairs. Our method stays within the cubic CYK framework and handles pseudoknots with a second pass.
+\textbf{Consensus structure prediction.} RNAalifold \cite{bernhart2008rnaalifold} from the ViennaRNA Package \cite{lorenz2011viennarna} folds an alignment by combining averaged free energies with a covariation term; it predicts nested structures. KH-99 and Pfold use an SCFG with phylogenetic column likelihoods, and PPfold \cite{sukosd2012ppfold} parallelises Pfold.
 
-\section{Method}
-The input is an alignment of $N$ sequences with $n$ columns; the output is a consensus dot-bracket structure in which \texttt{()} marks nested pairs and \texttt{[]} crossing pairs.
+\textbf{Pseudoknots.} Exact dynamic programming for general pseudoknots, such as the algorithm of Rivas and Eddy \cite{rivas1999pseudoknots}, runs in $O(n^6)$ time; stochastic multiple context-free grammars \cite{kato2006stochastic} and pair stochastic tree adjoining grammars \cite{matsui2005pair} model restricted classes at lower but still super-cubic cost. IPknot \cite{sato2011ipknot} decomposes a structure into nested levels and selects pairs from base-pairing probabilities by integer programming; it accepts alignments, which makes it the closest pseudoknot-capable baseline for our setting. Knotify \cite{andrikos2023knotify} detects pseudoknots with syntactic pattern recognition, and deep-learning models such as E2Efold \cite{chen2022rna} and SPOT-RNA \cite{singh2019rna} predict pairing matrices from single sequences.
+
+\GB{} stays within cubic-time CYK. Like IPknot it builds pseudoknotted structures from nested layers, but it scores each layer with a phylogenetic SCFG rather than with thermodynamic pair probabilities.
+
+\section{Model}
+\label{sec:model}
+The input is an alignment of $N$ sequences with $n$ columns; the output is a set of base pairs between columns, drawn in dot-bracket notation. Table~\ref{tab:settings} lists the settings of the model.
+
+\begin{table}[h]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{clc}
+\toprule
+\textbf{Symbol} & \textbf{Setting} & \textbf{Value}\\
+\midrule
+$\rinit$ & helix initiation ratio & 0.16\\
+$\rext$ & helix extension ratio & 1.59\\
+$\rcross$ & crossing ratio & 1\\
+$\rpk$ & pseudoknot pair ratio & 0.56\\
+$\beta$ & evidence weight & 0.8\\
+$\hmin$ & minimum hairpin loop & 3\\
+\bottomrule
+\end{tabular}
+\caption{Settings of \GB{}. Both layers use the same $\rinit$ and $\rext$; the values are chosen in Section~\ref{sec:tuning}.}
+\label{tab:settings}
+\end{table}
 
 \subsection{Structure grammar}
-We use the KH-99 grammar in Chomsky normal form:
+The KH-99 grammar in Chomsky normal form is
 \begin{align*}
     &S \rightarrow L\ S \mid \$M\ E \mid s \qquad L \rightarrow \$M\ E \mid s\\
     &F \rightarrow \$M\ E \mid L\ S \qquad\ \, \$M \rightarrow B\ F\\
     &B \rightarrow d \qquad\qquad\qquad\ \ \, E \rightarrow d
 \end{align*}
-$S$ generates a loop region of one or more elements, and $L$ one element, which is either an unpaired base $s$ or a helix. $\$M\,E$ generates a base pair $d\,F\,d$. $F$, the interior of a pair, is either another pair (stacking) or a loop of at least two elements. Every nested structure has exactly one derivation, so the maximum-likelihood rule probabilities are the relative frequencies of the rules used by the training structures.
+$S$ generates a loop region of one or more elements, and $L$ one element: an unpaired base $s$ or a helix. $\$M\,E$ generates a base pair $d\,F\,d$, whose interior $F$ is either another pair (stacking) or a loop of at least two elements. Every nested structure has exactly one derivation, so the maximum-likelihood rule probabilities are the relative rule frequencies in the training structures.
 
-\subsection{Evolutionary model}
-Unpaired columns evolve under a $4\times 4$ rate matrix $R$, and paired columns under a $16\times 16$ rate matrix over dinucleotides \cite{knudsen1999}. Both are estimated from Rfam seed families that have trees. Each family has the same total weight, split evenly over its sequences. For ordered pairs of sequences with at least 85\% identity, we count substitutions $c_{XY}$ in unpaired columns and $c_{XY,X'Y'}$ in paired columns, symmetrised so that $XY\to X'Y'$ also counts $YX\to Y'X'$. We then set
+\subsection{Phylogenetic column model}
+Unpaired columns evolve under a $4\times 4$ rate matrix $R$, and paired columns under a $16\times 16$ rate matrix over dinucleotides \cite{knudsen1999}. For every tree, Felsenstein's pruning algorithm \cite{felsenstein1981} gives $\log P_{\text{single}}(i)$ for each column and $\log P_{\text{pair}}(i,j)$ for each pair of columns, with gaps as unknown nucleotides \cite{knudsen2003}. Identical columns have identical likelihoods, so both are computed once per distinct column pattern.
+
+\textbf{Estimation.} Each training family has the same total weight, split over its sequences. For ordered pairs of sequences with at least 85\% identity over columns where both have a base, substitutions are counted in unpaired and paired columns (the latter symmetrised) and divided by the expected exposure,
 $$R_{XY} = \frac{c_{XY}}{P_s\,P_X \sum_p t_p N_p},\qquad R_{XX} = -\sum_{Y\neq X} R_{XY},$$
-where $t_p$ is the tree distance and $N_p$ the number of comparable columns of pair $p$, $P_X$ the frequency of $X$, and $P_s$ the fraction of unpaired positions. The paired matrix uses $2/P_p$ in place of $1/P_s$, since a paired column holds two positions. Counts from one sequence are averaged over its similar partners. Ambiguous IUPAC symbols are spread uniformly over the compatible nucleotides.
+where $t_p$ is the tree distance and $N_p$ the number of comparable columns of sequence pair $p$, $P_X$ the frequency of $X$ and $P_s$ the fraction of unpaired positions; the paired matrix uses $2/P_p$ in place of $1/P_s$.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.34\textwidth]{images/phylogenetic_tree.png}
-    \caption{A tree with nucleotides G, U and C at the tips; the interior states A and B are unknown.}
-    \label{fig:tree}
-\end{figure}
+\textbf{Trees.} Trees have a neighbour-joining topology \cite{saitou1987} on Jukes--Cantor distances, with maximum-likelihood branch lengths under $R$ (golden-section search per branch with inside and outside partial likelihoods), rooted at the midpoint. For estimation this is done in two stages: neighbour-joining branch lengths give a first model, whose rates then set the branch lengths for the final estimate.
 
-For the tree in Figure~\ref{fig:tree}, the probability of the tip states together with interior states $A, B$ is \cite{felsenstein1981}
-$$P(\mathit{GUC}, AB) = \pi_A\, p_{AG}(v_1)\, p_{AU}(v_2)\, p_{AB}(v_4)\, p_{BC}(v_3),$$
-where $p_{XY}(t)=[e^{Rt}]_{XY}$. The likelihood of the column sums over all interior states. Felsenstein's pruning algorithm computes this sum in time linear in the number of nodes. A gap is treated as an unknown nucleotide (a tip vector of all ones) \cite{knudsen2003}. We compute $\log P_{\text{single}}(i)$ for all columns and $\log P_{\text{pair}}(i,j)$ for all $n^2$ column pairs at once, as arrays of shape $n\times 4$ and $n\times n\times 16$. Every node is rescaled, so large alignments do not underflow.
-
-\textbf{Tree.} The alignment tree has a neighbour-joining topology \cite{saitou1987} built from Jukes--Cantor distances. Its branch lengths are set by maximum likelihood under $R$: two sweeps of golden-section search per branch, using inside and outside partial likelihoods. The tree is then rooted at its midpoint. A PhyML tree \cite{guindon2010phyml} can be used instead.
-
-\subsection{Gap-Bracket CYK}
-Extending the grammar with the column evidence gives the Viterbi recursions below. All terms are log-probabilities, $q$ denotes rule probabilities, and $\rho_s$, $\rho_a$, $\rho_f$ are the \emph{start}, \emph{accelerate} and \emph{flag} ratios.
+\subsection{Two-layer parsing}
+\label{sec:parser}
+Extending the grammar with the column evidence gives the Viterbi recursions below; all terms are log-probabilities and $q$ denotes rule probabilities.
 \begin{align*}
-\mathrm{Pair}(i,j) &= M(i,j{-}1) + \log P_{\text{pair}}(i,j) + \chi(i,j)\log\rho_f\\
-M(i,j) &= \log q_{\$M\to BF} + \max\big(F_{\text{st}}(i{+}1,j) + \log\rho_a,\\
-&\qquad\qquad F_{\text{lp}}(i{+}1,j) + \log\rho_s\big)\\
+\mathrm{Pair}(i,j) &= M(i,j{-}1) + \log P_{\text{pair}}(i,j) + \chi(i,j)\log\rcross\\
+M(i,j) &= \log q_{\$M\to BF} + \max\big(F_{\text{st}}(i{+}1,j) + \log\rext,\\
+&\qquad\qquad F_{\text{lp}}(i{+}1,j) + \log\rinit\big)\\
 F_{\text{st}}(i,j) &= \log q_{F\to \$M E} + \mathrm{Pair}(i,j)\\
 F_{\text{lp}}(i,j) &= \log q_{F\to LS} + \max_k L(i,k) + S(k{+}1,j)\\
 L(i,j) &= \log q_{L\to \$M E} + \mathrm{Pair}(i,j) \quad (i<j)\\
 S(i,j) &= \max\big(\log q_{S\to \$M E} + \mathrm{Pair}(i,j),\\
 &\qquad \log q_{S\to LS} + \max_k L(i,k) + S(k{+}1,j)\big)
 \end{align*}
-For a single column, $S(i,i) = \log q_{S\to s} + \log P_{\text{single}}(i)$, and likewise for $L$. The start ratio $\rho_s$ applies to a pair that closes a loop, i.e.\ the innermost pair of a helix. The accelerate ratio $\rho_a$ applies to a pair stacked on another pair, so $\rho_a > \rho_s$ favours long, uninterrupted helices. Because $F$ is split into its stacked and loop derivations, the ratios are applied exactly. The earlier implementation kept one $F$ cell, and the ratio depended on whichever derivation happened to score best there. $\chi(i,j)$ counts the first-pass pairs that cross $(i,j)$.
+For a single column, $S(i,i) = \log q_{S\to s} + \log P_{\text{single}}(i)$, and likewise for $L$. The helix initiation ratio $\rinit$ applies to a pair that closes a loop, i.e.\ the innermost pair of a helix, and the helix extension ratio $\rext$ to a pair stacked on another pair; with $\rinit<\rext$, helices are cheaper to extend than to start. Splitting $F$ into its stacked and loop derivations applies the ratios exactly.
 
-Each span length is filled with one vectorised array operation, so a pass costs $O(n^3)$ arithmetic but only $O(n)$ Python iterations. The recursions and traceback are tested against exhaustive enumeration of all structures on random inputs.
+\textbf{First layer.} The parser runs on all columns and returns a nested structure.
 
-\textbf{First pass.} The parser runs on all columns ($\chi = 0$) and returns the nested structure, written with \texttt{()}.
+\textbf{Second layer.} The parser runs again on the columns that the first layer leaves unpaired and returns a second nested set of pairs, which may cross the first. Each of its pairs is weighted by the pseudoknot pair ratio $\rpk$, and by $\rcross$ once for every first-layer pair it crosses ($\chi$ counts these). With $\rpk<1$ a pseudoknot helix must be better supported by the alignment than a nested one.
 
-\textbf{Second pass.} The first-pass pairs are removed. The parser runs again on the remaining columns, with its own $\rho_s, \rho_a$ and the crossing weight $\rho_f$, and the pairs it finds are written with \texttt{[]}. Repeating the procedure would find deeper pseudoknots.
+The two layers describe bi-secondary structures, the class IPknot predicts with two levels. The search is greedy: the second layer can only use columns the first leaves free. We also evaluated a \emph{joint refinement} that re-parses each layer given the other and keeps a round only if the joint score of both layers increases (Section~\ref{sec:tuning}).
 
-\section{Parameters}
+\subsection{Evidence weight and hairpin loops}
+\label{sec:weight}
+Every column log-likelihood is multiplied by the evidence weight $\beta$ before parsing. The phylogenetic model treats columns as independent and sequences as related only through the tree, which overstates the evidence of a small alignment; with $\beta<1$ the grammar counts for more. A pair $(i,j)$ is admitted only if $j-i>\hmin$ in alignment coordinates, with $\hmin=3$; the bare grammar allows loops of two columns.
+
+\textbf{Output.} The predicted pairs are drawn with the largest nested subset as \texttt{()}, the largest nested subset of the rest as \texttt{[]}, and so on (exact interval dynamic programming). This affects only the drawing, not the pairs or any score.
+
+\textbf{Implementation and verification.} Each span length of the chart is filled in one vectorised step, and the bifurcation reads contiguous array slices, so a pass costs $O(n^3)$ arithmetic with $O(n)$ interpreter iterations. The CYK recursions (for $\hmin=2$ and $3$), the structure scoring used by refinement, the largest-nested-subset program and pattern-compressed likelihoods are all tested against exhaustive enumeration or direct computation.
+
+\section{Benchmark and Protocol}
+\label{sec:benchmark}
 \subsection{Data}
-Three Rfam families with a range of observed mutations define the evolutionary model and the grammar: RF00001 (5S rRNA), RF00005 (tRNA) and RF03000 (LOOT RNA motif). Three further families (RF01704, RF02035, RF03054) were tried early on and not used. The ratios are tuned on eight small validation families, and the method is evaluated on eight test families (Table~\ref{tab:families}). RF01737 appears in both sets, with different sequences, so we also report test scores without it. One validation reference, RF01722, contained an unmatched `\texttt{(}`, which we treat as unpaired.
+The benchmark is built from Rfam 15.1 \cite{kalvari2021rfam} seed alignments. Only the 769 families whose consensus structure is annotated as published or taken from PseudoBase \cite{vanbatenburg2000pseudobase} are used. Structures annotated as predicted (by RNAalifold, CMfinder and similar tools) are excluded, because they would reward agreement with the tool that made them. Families of one Rfam clan are kept together, and clans are shuffled with a fixed seed within two strata (with or without a pseudoknotted family) and dealt 50/15/35\% to training, tuning and test.
 
+Training families keep up to 100 seed sequences. Each tuning and test family contributes one alignment of 4--12 random seed sequences, the setting in which a user supplies a small alignment. In every alignment, columns where at most half of the sequences have a base are removed together with the reference pairs that use them; alignments with fewer than three reference pairs, and tuning or test alignments longer than 400 columns, are skipped (Table~\ref{tab:data}).
 
 \begin{table}[h]
-\centering\footnotesize
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabular}{llrr}
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrr}
 \toprule
-\textbf{Set} & \textbf{Families} & \textbf{Seqs} & \textbf{Cols}\\
+\textbf{Set} & \textbf{Aln.} & \textbf{PK} & \textbf{Clans} & \textbf{Seqs} & \textbf{Columns}\\
 \midrule
-Training & RF00001, RF00005, RF03000 & 368--954 & 118--230\\
-Validation & RF01862, RF01834, RF01077, & 4--10 & 32--70\\
- & RF01090, RF01080, RF01722, & & \\
- & RF03537, RF01737 & & \\
-Test & RF00556, RF00499, RF01084, & 3--25 & 33--191\\
- & RF03004, RF01089, RF01093, & & \\
- & RF01072, RF01737 & & \\
+Training & 337 & 66 & 316 & 4--100 & 23--1208\\
+Tuning & 100 & 22 & 94 & 4--12 & 19--307\\
+Test & 246 & 47 & 216 & 4--12 & 20--383\\
 \bottomrule
 \end{tabular}
-\caption{Rfam families per set.}
-\label{tab:families}
+\caption{Benchmark sets: alignments, alignments with a pseudoknot, clan groups, sequences and columns per alignment. Median test alignment: 7 sequences, 94 columns.}
+\label{tab:data}
 \end{table}
 
-\subsection{Evolutionary parameters}
-GC/CG pairs dominate stems (Table~\ref{tab:freq}), in line with their high stacking energy. Transitions (A$\leftrightarrow$G, C$\leftrightarrow$U) are faster than transversions (Table~\ref{tab:single}). In paired columns, changes that keep a pair canonical, such as UG$\to$CG or AU$\to$GC, are frequent, while changes that need two transversions are rare (Table~\ref{tab:pair}). Our re-implementation reproduces the parameters of the original notebooks to a relative difference of $10^{-4}$. The only difference is how ambiguous IUPAC symbols are handled.
+\subsection{Metrics}
+\begin{itemize}
+    \item \textbf{All base pairs:} positive predictive value (PPV), sensitivity and F1, pooled over the alignments of a set.
+    \item \textbf{Pseudoknotted pairs:} the same measures restricted to pairs that cross at least one other pair of their own structure. This definition covers both helices of a pseudoknot and does not depend on bracket layers.
+    \item \textbf{Pseudoknot detection:} per alignment, sensitivity (a pseudoknot is predicted when the reference has one) and specificity (none is predicted when the reference has none).
+\end{itemize}
+Confidence intervals come from 10{,}000 bootstrap resamples of alignments; differences between methods use paired resamples.
+
+\subsection{Baselines}
+\begin{itemize}
+    \item \textbf{RNAalifold} 2.7.2, consensus minimum free energy, default parameters (nested structures only).
+    \item \textbf{IPknot} 1.1.0 in aligned mode, mixing averaged McCaskill and RNAalifold base-pairing probabilities as recommended for alignments, with default thresholds (pseudoknots allowed).
+    \item \textbf{KH-99 CYK}: our parser with one layer, all ratios 1, $\beta=1$ and $\hmin=2$.
+\end{itemize}
+Knotify, SPOT-RNA and E2Efold predict from single sequences and would need a rule for combining per-sequence predictions into a consensus. They were not evaluated.
+
+\subsection{Estimated parameters}
+The 337 training families give the parameters in Table~\ref{tab:parameters}. GC/CG pairs make up 49.7\% of paired columns (AU/UA 35.0\%, GU/UG 10.0\%). Transitions are faster than transversions, and in paired columns, changes that keep a pair canonical, such as UG$\to$CG, dominate. The grammar rule probabilities are $S\to L\,S \mid \$M\,E \mid s$: 0.896, 0.013, 0.092; $L\to\$M\,E \mid s$: 0.077, 0.923; and $F\to\$M\,E \mid L\,S$: 0.808, 0.192, so most pairs are stacked on another pair.
 
 \begin{table}[h]
-\centering
-\begin{tabular}{lr@{\qquad}lr}
-\toprule
-\multicolumn{2}{c}{\textbf{Paired bases}} & \multicolumn{2}{c}{\textbf{Single bases}}\\
-\midrule
-GC/CG  & 53.2\% & A & 37.2\% \\
-AU/UA  & 30.8\% & C & 19.0\% \\
-GU/UG  & 10.1\% & G & 18.7\% \\
-Others & 5.9\%  & U & 25.1\% \\
-\midrule
-\textbf{Of positions} & \textbf{61.1\%} & \textbf{Of positions} & \textbf{38.9\%}\\
-\bottomrule
-\end{tabular}
-\caption{Base frequencies in the three training families.}
-\label{tab:freq}
-\end{table}
-
-\begin{table}[h]
-\centering
-\begin{tabular}{c|rrrr}
-\toprule
-\textbf{X / Y} & \textbf{A} & \textbf{C} & \textbf{G} & \textbf{U}\\
-\midrule
-\textbf{A} & $-0.44$ & 0.12 & 0.17 & 0.15 \\
-\textbf{C} & 0.24 & $-0.77$ & 0.12 & 0.41 \\
-\textbf{G} & 0.33 & 0.12 & $-0.62$ & 0.17 \\
-\textbf{U} & 0.22 & 0.32 & 0.13 & $-0.66$ \\
-\bottomrule
-\end{tabular}
-\caption{Single-base rate matrix $R$.}
-\label{tab:single}
-\end{table}
-
-\begin{table}[h]
-\centering
-\setlength{\tabcolsep}{4pt}
+\centering\small
+\setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{c|rrrrrr}
 \toprule
 \textbf{X / Y} & \textbf{AU} & \textbf{UA} & \textbf{GC} & \textbf{CG} & \textbf{UG} & \textbf{GU}\\
 \midrule
-\textbf{AU} & $-1.66$ & 0.28 & 0.68 & 0.21 & 0.03 & 0.25 \\
-\textbf{UA} & 0.28 & $-1.66$ & 0.21 & 0.68 & 0.25 & 0.03 \\
-\textbf{GC} & 0.37 & 0.11 & $-1.14$ & 0.24 & 0.03 & 0.26 \\
-\textbf{CG} & 0.11 & 0.37 & 0.24 & $-1.14$ & 0.26 & 0.03 \\
-\textbf{UG} & 0.10 & 0.76 & 0.16 & 1.47 & $-2.84$ & 0.03 \\
-\textbf{GU} & 0.76 & 0.10 & 1.47 & 0.16 & 0.03 & $-2.84$ \\
+\textbf{AU} & $-1.70$ & 0.13 & 0.43 & 0.10 & 0.02 & 0.60 \\
+\textbf{UA} & 0.13 & $-1.70$ & 0.10 & 0.43 & 0.60 & 0.02 \\
+\textbf{GC} & 0.30 & 0.06 & $-1.19$ & 0.08 & 0.01 & 0.45 \\
+\textbf{CG} & 0.06 & 0.30 & 0.08 & $-1.19$ & 0.45 & 0.01 \\
+\textbf{UG} & 0.08 & 2.12 & 0.04 & 2.31 & $-4.98$ & 0.03 \\
+\textbf{GU} & 2.12 & 0.08 & 2.31 & 0.04 & 0.03 & $-4.98$ \\
 \bottomrule
 \end{tabular}
-\caption{Entries of the paired rate matrix between canonical pairs (the diagonal also includes rates to non-canonical pairs).}
-\label{tab:pair}
+\caption{Paired-column substitution rates between canonical pairs, estimated from the training set (the diagonal includes rates to non-canonical pairs).}
+\label{tab:parameters}
 \end{table}
 
-\subsection{Grammar parameters}
-Relative rule frequencies in the nested part of the training structures:
-\begin{align*}
-    &S \rightarrow L\,S\ (88.4\%) \mid \$M\,E\ (2.3\%) \mid s\ (9.3\%)\\
-    &F \rightarrow \$M\,E\ (61.6\%) \mid L\,S\ (38.4\%)\\
-    &L \rightarrow \$M\,E\ (8.6\%) \mid s\ (91.4\%)\\
-    &\$M \rightarrow B\,F\ (100\%) \qquad B, E \rightarrow d\ (100\%)
-\end{align*}
-The original notebooks estimated these with inside--outside on strings of paired/unpaired symbols, which gave similar values (88.6/1.9/9.5, 62.5/37.5, 8.7/91.3\%). That estimate does not know which bases pair with which, so we use the exact counts instead.
+\section{Tuning}
+\label{sec:tuning}
+\subsection{Tuning methods}
+Seven settings are tunable: $\rinit$ and $\rext$ of each layer, $\rcross$, $\rpk$ and $\beta$. Ratios take values $2^{k/3}$ for $k=-8,\dots,8$ (0.16--6.35), $\rpk\in\{10^{-k/4}: k=0,\dots,8\}$ (1--0.01) and $\beta\in\{0.4,0.5,\dots,1.1,1.25\}$; $\hmin=3$ is fixed. The objective is pooled base-pair F1 on the tuning set, with ties broken towards neutral values. We compare three tuning methods.
+\begin{itemize}
+    \item \textbf{Shared ratios, exhaustive search:} both layers share $\rinit$ and $\rext$ and $\rcross=1$; the full grid of the remaining four settings ($17\times17\times9\times9$ candidates) is scored, so the optimum is global.
+    \item \textbf{Separate ratios, coordinate ascent:} all seven settings, one at a time from neutral.
+    \item \textbf{Separate ratios, genetic algorithm:} all seven settings; population 32, tournament selection, uniform crossover, mutations of one or two grid steps and elitism, followed by coordinate ascent.
+\end{itemize}
+Base-pair counts are cached for every candidate and alignment and computed in parallel; the protocol below scores 31{,}830 candidates in 17 minutes on a laptop.
 
-\subsection{Gap-Bracket ratios}
-The ratios were chosen by grid search on the validation set, maximising pooled base-pair F1. The grid covered $\{0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 2.8, 4\}$ for $\rho_s,\rho_a$ and $\{0.25,\dots,2\}$ for $\rho_f$. The first pass was tuned alone, then the second pass on top of it, and ties went to the setting closest to 1. The whole search takes about 10 seconds. The genetic algorithm of the original notebooks needed an estimated several hours, because every evaluation re-ran PhyML and a dictionary-based parser.
+\subsection{Selecting the method}
+The tuning set is split into 10 folds by clan. Each method is tuned on nine folds and predicts the tenth, and the pooled held-out predictions give its cross-validated F1 (Table~\ref{tab:cv}). The method with the highest estimate is chosen, with ties going to fewer settings, and is then fitted on the whole tuning set.
 
 \begin{table}[h]
-\centering
+\centering\small
+\setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{lccc}
 \toprule
- & \textbf{Start} $\rho_s$ & \textbf{Accelerate} $\rho_a$ & \textbf{Flag} $\rho_f$\\
+ & \multicolumn{2}{c}{\textbf{Held-out F1}} & \\
+\cmidrule(lr){2-3}
+\textbf{Tuning method} & \textbf{2 layers} & \textbf{+ refinement} & \textbf{Picks}\\
 \midrule
-\multicolumn{4}{l}{\textit{Grid search (this report, default)}}\\
-1st pass & 0.35 & 2.00 & -- \\
-2nd pass & 1.00 & 1.40 & 1.00 \\
-\multicolumn{4}{l}{\textit{Genetic algorithm (2025 notebooks)}}\\
-1st pass & 0.19 & 1.48 & -- \\
-2nd pass & 0.88 & 1.78 & 0.98 \\
+None (all settings 1) & .728 & .731 & --\\
+Separate, coordinate & .745 & .759 & 6\\
+Separate, genetic & .755 & .754 & 9\\
+\textbf{Shared, exhaustive} & \textbf{.755} & .755 & \textbf{5}\\
+\quad with $\beta=1$ & .753 & -- & 4\\
+\midrule
+\multicolumn{4}{l}{\textit{Untuned baselines on the same alignments}}\\
+RNAalifold & .758 & & \\
+IPknot & .757 & & \\
 \bottomrule
 \end{tabular}
-\caption{Gap-Bracket ratios. Both searches find $\rho_s < 1 < \rho_a$ in the first pass: helices are cheap to extend and expensive to start.}
-\label{tab:ratios}
+\caption{Clan-grouped 10-fold cross-validation on the tuning set. \emph{Picks}: distinct settings chosen over the folds (two layers).}
+\label{tab:cv}
 \end{table}
+
+Tuning raises held-out F1 from 0.728 to 0.755. On this benchmark the three methods differ by at most 0.010. Joint refinement does not change the chosen method's estimate and quadruples tuning time (70 minutes), so it is not used. Exhaustive search over shared ratios ties with the genetic algorithm using three fewer settings and is selected. The final settings (Table~\ref{tab:settings}) keep $\rinit<\rext$ and charge each pseudoknotted pair a ratio of 0.56.
 
 \section{Results}
-The main measure is pooled base-pair F1 over the families of a set. For continuity with the 2025 report we also give the \emph{weighted} score used there: pair F1 and unpaired-column F1 averaged with weights $2\times$(reference pairs) and (reference unpaired columns). Confidence intervals come from resampling families with replacement (10{,}000 resamples).
+\label{sec:results}
+All results in this section are on the test set, which was scored once after the model, tuning method and settings had been fixed.
 
-\begin{table}[h]
-\centering
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Model} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{Wtd.}\\
-\midrule
-\multicolumn{5}{l}{\textit{Validation (8 families, used for tuning)}}\\
-KH-99 CYK & .820 & .701 & .756 & .780\\
-Gap-Bracket, 1st pass & .846 & .752 & .796 & .814\\
-Gap-Bracket, 2 passes & .836 & .872 & \textbf{.854} & .866\\
-\quad with 2025 GA ratios & .832 & .846 & .839 & .854\\
-\midrule
-\multicolumn{5}{l}{\textit{Test (8 held-out families)}}\\
-KH-99 CYK & .748 & .604 & .669 & .703\\
-Gap-Bracket, 1st pass & .770 & .731 & .750 & .750\\
-Gap-Bracket, 2 passes & .769 & .843 & \textbf{.804} & .798\\
-\quad with 2025 GA ratios & .793 & .858 & .824 & .818\\
-\bottomrule
-\end{tabular}
-\caption{Pooled precision, recall, base-pair F1 and the legacy weighted score. KH-99 CYK is the same parser with all ratios equal to 1 and one pass.}
-\label{tab:results}
-\end{table}
-
-Table~\ref{tab:results} and Figure~\ref{fig:families} summarise the results. On the test set, the first-pass ratios raise F1 from 0.669 to 0.750, mostly through recall: helices are no longer broken into fragments. The second pass adds 0.054 F1 (95\% CI 0.006--0.116) by recovering pseudoknotted helices, and raises recall to 0.843 with almost no loss of precision. Overall, the gain over KH-99 CYK is 0.135 (CI 0.007--0.331). Without the overlapping family RF01737, test F1 is 0.650, 0.743 and 0.803 for the three models.
-
-The genetic-algorithm ratios score lower than the grid-search ratios on validation (0.839 vs 0.854) but higher on test (0.824 vs 0.804; difference CI 0.001--0.050). Tuning five ratios on eight small families overfits somewhat. Both settings were fixed on validation data, so we keep the grid-search ratios as the default rather than choosing between them by test score. With a benchmark this small, intervals are wide, and differences of a few F1 points should not be over-interpreted.
-
-\textbf{Reproduction.} With PhyML trees and the genetic-algorithm ratios, as in the original notebooks, the new implementation gives a weighted test score of 0.817. The 2025 report gave 0.824, and four of the eight families (RF00556, RF00499, RF01072, RF01737) agree to within 0.1 points. The remaining differences come from the exact application of the ratios (Section~3.3), the crossing count over the full pair span, and the exact grammar counts.
-
+\subsection{Accuracy}
 \begin{figure*}[t]
     \centering
-    \includegraphics[width=0.9\textwidth]{images/family_f1.png}
-    \caption{Base-pair F1 per family. The second pass mainly helps families with pseudoknots (RF01834, RF01077, RF01080, RF03004, RF01093, RF01072).}
-    \label{fig:families}
+    \includegraphics[width=0.78\textwidth]{images/accuracy.png}
+    \caption{Test-set F1 on all base pairs and on pseudoknotted pairs, with 95\% bootstrap intervals.}
+    \label{fig:accuracy}
 \end{figure*}
 
-\begin{table}[h]
-\centering
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lrrrr}
+\begin{table*}[t]
+\centering\small
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{l ccc ccc cc cc}
 \toprule
-\textbf{Family} & \textbf{Seqs} & \textbf{Cols} & \textbf{2025 code} & \textbf{This work}\\
+ & \multicolumn{3}{c}{\textbf{All base pairs}} & \multicolumn{3}{c}{\textbf{Pseudoknotted pairs}} & \multicolumn{2}{c}{\textbf{PK detection}} & \multicolumn{2}{c}{\textbf{F1 by alignment}}\\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-9}\cmidrule(lr){10-11}
+\textbf{Method} & PPV & Sens. & F1 & PPV & Sens. & F1 & Sens. & Spec. & PK (47) & Nested (199)\\
 \midrule
-RF01737 & 3 & 68 & 3.3\,s & 10\,ms\\
-RF01072 & 25 & 33 & 5.5\,s & 104\,ms\\
-RF00556 & 10 & 46 & 6.5\,s & 40\,ms\\
-RF01093 & 12 & 60 & 14.6\,s & 50\,ms\\
-RF03004 & 9 & 84 & 27.8\,s & 41\,ms\\
-RF00499 & 5 & 117 & 54.6\,s & 27\,ms\\
-RF01089 & 7 & 134 & 736\,s & 44\,ms\\
-RF01084 & 9 & 191 & $>$40\,min$^\dagger$ & 82\,ms\\
+KH-99 CYK & .791 & .706 & .746 & -- & -- & -- & -- & -- & .700 & .761\\
+RNAalifold & .789 & .747 & \textbf{.767} & -- & -- & -- & -- & -- & .709 & \textbf{.785}\\
+IPknot & .803 & .716 & .757 & .140 & .094 & .113 & .319 & .809 & .707 & .773\\
+\textbf{\GB{}} & .802 & .721 & .759 & \textbf{.596} & \textbf{.496} & \textbf{.541} & \textbf{.596} & \textbf{.940} & \textbf{.771} & .755\\
 \bottomrule
 \end{tabular}
-\caption{Wall-clock time to predict one test alignment (tree, column likelihoods and both passes) on an Apple-silicon laptop. The 2025 code ran PhyML under Rosetta. $^\dagger$Stopped after 40 minutes.}
-\label{tab:time}
+\caption{Test-set accuracy (246 alignments). \emph{F1 by alignment}: overall pair F1 on the 47 alignments whose reference has a pseudoknot and on the 199 without one. Dashes: the method cannot predict pseudoknots.}
+\label{tab:results}
+\end{table*}
+
+Table~\ref{tab:results} and Figure~\ref{fig:accuracy} summarise the test results.
+
+\textbf{All base pairs.} \GB{} reaches F1 0.759\ci{0.723}{0.792}. The differences to RNAalifold ($-0.008$, 95\% CI $-0.034$ to $+0.015$) and IPknot ($+0.002$, $-0.019$ to $+0.022$) are not significant. \GB{} is more precise than RNAalifold (PPV 0.802 vs 0.789) and less sensitive (0.721 vs 0.747).
+
+\textbf{Pseudoknots.} On pseudoknotted pairs \GB{} reaches F1 0.541\ci{0.425}{0.642}, against 0.113\ci{0.048}{0.186} for IPknot, a difference of $+0.429$ ($+0.297$ to $+0.541$). It predicts a pseudoknot in 60\% of the pseudoknotted alignments and in 6\% of the others; IPknot does so in 32\% and 19\%. On pseudoknotted alignments, \GB{} has the highest overall F1 (0.771 vs 0.709 for RNAalifold). On alignments without pseudoknots, RNAalifold is best (0.785 vs 0.755).
+
+\subsection{Ablations}
+\begin{table}[h]
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{\textbf{All pairs}} & \multicolumn{2}{c}{\textbf{PK pairs}}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Variant} & F1 & $\Delta$ & F1 & $\Delta$\\
+\midrule
+\textbf{\GB{}} & \textbf{.759} & & \textbf{.541} & \\
+First layer only & .747 & $-.012^{*}$ & -- & \\
+$\hmin=2$ & .756 & $-.003^{*}$ & .528 & $-.013$\\
+$\beta=1$ (retuned) & .764 & $+.005$ & .506 & $-.036$\\
+Separate, coordinate & .758 & $-.001$ & .538 & $-.003$\\
+Separate, genetic & .760 & $+.001$ & .549 & $+.008$\\
+\bottomrule
+\end{tabular}
+\caption{Test-set ablations and settings from the rejected tuning methods. $\Delta$: difference to \GB{}; $^{*}$: 95\% paired bootstrap interval excludes zero.}
+\label{tab:ablations}
 \end{table}
 
-\textbf{Speed.} Table~\ref{tab:time} compares running times. The original implementation wrote an extended grammar with one rule per distinct column pattern to disk, then ran a dictionary-based CYK over it, so its cost grew with both alignment length and the number of distinct columns. The new implementation computes all column likelihoods as arrays and fills each span length of the chart in a single vectorised step.
+The second layer adds 0.012 overall F1, with a confidence interval excluding zero, and provides all of the pseudoknot accuracy (Table~\ref{tab:ablations}). The minimum hairpin loop adds 0.003, also significant. The evidence weight trades 0.005 overall F1 for 0.036 pseudoknot F1; neither difference is significant. The settings of the rejected tuning methods agree with \GB{} to within 0.008 on both measures, consistent with the cross-validation.
+
+\subsection{Running time}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.92\columnwidth]{images/runtime.png}
+    \caption{Time per test alignment against alignment length (tree, likelihoods and both layers for \GB{}). All methods ran with 8 parallel workers on an Apple-silicon laptop.}
+    \label{fig:runtime}
+\end{figure}
+
+\GB{} needs a median of 14.5\,ms per test alignment (maximum 231\,ms), RNAalifold 11.3\,ms (374\,ms) and IPknot 116\,ms (4.6\,s); the 246 alignments take 6.5\,s, 5.7\,s and 92\,s (Figure~\ref{fig:runtime}). The RNAalifold and IPknot times include starting a process per alignment.
 
 \section{Discussion}
-Two failure modes remain.
-\begin{enumerate}
-    \item \textbf{Alignments unlike the training families.} The model is estimated from only three families. RF01084 (191 columns), for example, contains long, gappy regions. There, the pair evidence is weak and the grammar prefers short local helices.
-    \item \textbf{Poorly conserved, gappy columns.} Gaps are unknown nucleotides, so a column that is filled in only one or two sequences can still support a pair. The structure of such a region then depends on very few sequences.
-\end{enumerate}
+\textbf{What the second layer buys.} A nested SCFG cannot represent pseudoknots, and adding a second layer with a cost per pseudoknotted pair recovers half of the pseudoknotted pairs at a PPV of 0.60, without lowering overall accuracy. IPknot, which uses thermodynamic pair probabilities and per-level thresholds, rarely predicts pseudoknots on these alignments of 4--12 sequences.
 
-\noindent RF00499 (first 54 columns) shows the effect of the first-pass ratios. KH-99 CYK breaks the long central helix into fragments, while the Gap-Bracket parser recovers most of it:
+\textbf{Where it falls short.} On alignments without pseudoknots, RNAalifold's energy model is more accurate than the phylogenetic SCFG (0.785 vs 0.755), and \GB{} still predicts a pseudoknot for 6\% of them. The KH-99 grammar has no loop-length or stacking-energy terms, and its substitution model treats sequences as related only through the tree.
 
-\begin{tcolorbox}[colback=green!5!white, colframe=green!30!black, title=RF00499, fontupper=\ttfamily\scriptsize, left=2pt, right=2pt]
-Ref\ \ ...((((((((((((((((((((((((((.((((((........))))))..)) \\
-KH99 ...(((((((...........((((.....((((((........)))))).... \\
-GB\ \ \ ...(((((((.((((((((((((((((((.((((((........))))))..))
-\end{tcolorbox}
+\textbf{Limitations.}
+\begin{itemize}
+    \item \emph{References.} Rfam consensus structures, even literature-derived ones, are curated alignments rather than solved three-dimensional structures, and they may miss or misplace pseudoknots.
+    \item \emph{Pseudoknot model.} The second layer is a greedy decomposition into two nested layers, not a pseudoknot grammar. It cannot represent structures that need three layers, and it can miss a pseudoknot whose helices are recognisable only together. Joint refinement of both layers did not help on this benchmark.
+    \item \emph{Baselines.} Single-sequence pseudoknot predictors, such as Knotify, SPOT-RNA and E2Efold, were not evaluated, and IPknot was run with its default aligned configuration only.
+    \item \emph{Statistics.} With 47 pseudoknotted test alignments, pseudoknot measures have intervals about $\pm 0.1$ wide.
+\end{itemize}
 
-\noindent RF01084 (first 54 columns) shows the gap problem. The first 38 columns are present in only one of nine sequences, yet both parsers place helices there, and the Gap-Bracket parser even predicts spurious crossing pairs:
-
-\begin{tcolorbox}[colback=green!5!white, colframe=green!30!black, title=RF01084, fontupper=\ttfamily\scriptsize, left=2pt, right=2pt]
-Ref\ \ ......................................(((((((..((((((. \\
-KH99 .(((((.....)))))....(((((..)))))......(((((((..(((((.. \\
-GB\ \ \ [((((([[...)))))(((((((((..))))).)))).(((((((..((((((.
-\end{tcolorbox}
-
-Clustering families and training a model per cluster could address the first issue. For the second, pairs could require a minimum number of sequences with bases in both columns, or the column likelihood could be weighted by how many sequences are gap-free there.
+\textbf{Alternatives not adopted.} Earlier development on a smaller data set also examined posterior (maximum-expected-accuracy) decoding, minimum stem lengths, a separate weight for unpaired columns and a smoothed tuning objective; none gave a reliable cross-validated gain.
 
 \section{Conclusion}
-The model rests on three assumptions: stems tend to be long and adjacent; whether a pair starts or extends a helix changes its probability; and pseudoknotted helices can be found once the nested structure is fixed. The start and accelerate ratios express the first two, and the two-pass parser expresses the third. On held-out families they raise base-pair F1 from 0.669 (KH-99 CYK) to 0.804. The clean implementation makes the method fast enough to tune and evaluate in seconds. With that in place, the next steps are a larger benchmark, more training families, and loop-length-dependent grammar parameters.
+\GB{} extends a phylogenetic SCFG to pseudoknots with a second parsing layer, a pseudoknot pair ratio and an evidence weight, all tuned by a cross-validated protocol on clan-disjoint Rfam data. On 246 held-out alignments it matches RNAalifold and IPknot on overall base-pair accuracy, predicts pseudoknotted pairs with F1 0.541 against 0.113 for IPknot, and runs about eight times faster than IPknot. The remaining gap to energy-based folding on nested structures points to richer loop models as the next step.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

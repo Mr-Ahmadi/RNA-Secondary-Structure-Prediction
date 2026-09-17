@@ -14,3 +14,5 @@ report/*.out
 report/*.fdb_latexmk
 report/*.fls
 report/*.synctex.gz
+.bench-env/
+data/rfam/Rfam.seed.gz

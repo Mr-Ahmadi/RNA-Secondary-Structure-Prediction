@@ -67,25 +67,54 @@ class EvolutionModel:
 
     def column_log_likelihoods(self, alignment: dict[str, str], tree: Node):
         """Return ``(single, pair)``: ``log P(column i)`` of shape ``(n,)`` and
-        ``log P(columns i, j evolve as a base pair)`` of shape ``(n, n)``."""
+        ``log P(columns i, j evolve as a base pair)`` of shape ``(n, n)``.
+
+        Identical columns have identical likelihoods, so both are computed
+        once per distinct column pattern and then expanded.
+        """
         names = [leaf.name for leaf in tree.leaves()]
         if sorted(names) != sorted(alignment):
             raise ValueError("tree leaves and alignment names differ")
-        tips = tip_likelihoods([alignment[name] for name in names])
-        tip_of = dict(zip(names, tips))
-        n = tips.shape[1]
+        tips = tip_likelihoods([alignment[name] for name in names])  # (leaves, n, 4)
+        _, first, column_pattern = np.unique(tips.transpose(1, 0, 2).reshape(tips.shape[1], -1), axis=0,
+                                             return_index=True, return_inverse=True)
+        patterns = tips[:, first]  # (leaves, u, 4)
+        tip_of = dict(zip(names, patterns))
+        u = patterns.shape[1]
 
         single = _prune(tree, lambda leaf: tip_of[leaf.name], self.single_rates, self.single_freq)
         pair = _prune(
             tree,
-            lambda leaf: (tip_of[leaf.name][:, None, :, None] * tip_of[leaf.name][None, :, None, :]).reshape(n, n, 16),
+            lambda leaf: (tip_of[leaf.name][:, None, :, None] * tip_of[leaf.name][None, :, None, :]).reshape(u, u, 16),
             self.pair_rates,
             self.pair_freq,
         )
-        return single, pair
+        column_pattern = column_pattern.ravel()
+        return single[column_pattern], pair[np.ix_(column_pattern, column_pattern)]
+
+
+class Transition:
+    """``P(t) = exp(R t)`` for many ``t`` from one eigendecomposition of ``R``.
+
+    Falls back to :func:`expm` when ``R`` is not (numerically) diagonalisable
+    with real eigenvalues.
+    """
+
+    def __init__(self, rates: np.ndarray):
+        self.rates = rates
+        w, v = np.linalg.eig(rates)
+        self.exact = np.allclose(w.imag, 0) and np.linalg.cond(v) < 1e8
+        if self.exact:
+            self.w, self.v, self.v_inv = w.real, v.real, np.linalg.inv(v.real)
+
+    def __call__(self, t: float) -> np.ndarray:
+        if not self.exact:
+            return expm(self.rates * t)
+        return (self.v * np.exp(self.w * t)) @ self.v_inv
 
 
 def _prune(tree: Node, tip, rates: np.ndarray, freq: np.ndarray) -> np.ndarray:
+    transition = Transition(rates)
     partial: dict[int, tuple[np.ndarray, np.ndarray]] = {}
     for node in tree.postorder():
         if node.is_leaf():
@@ -95,7 +124,7 @@ def _prune(tree: Node, tip, rates: np.ndarray, freq: np.ndarray) -> np.ndarray:
             like, log_scale = 1.0, 0.0
             for child in node.children:
                 child_like, child_scale = partial.pop(id(child))
-                like = like * (child_like @ expm(rates * child.length).T)
+                like = like * (child_like @ transition(child.length).T)
                 log_scale = log_scale + child_scale
             peak = like.max(-1)
             peak = np.where(peak > 0, peak, 1.0)
@@ -108,17 +137,20 @@ def _prune(tree: Node, tip, rates: np.ndarray, freq: np.ndarray) -> np.ndarray:
 
 
 def optimise_branch_lengths(tree: Node, alignment: dict[str, str], rates: np.ndarray,
-                            freq: np.ndarray, sweeps: int = 4) -> Node:
+                            freq: np.ndarray, sweeps: int = 2, iterations: int = 20) -> Node:
     """Maximum-likelihood branch lengths for a fixed topology (in place).
 
     Each sweep computes inside (pruning) and outside partial likelihoods and
-    then maximises every branch by golden-section search on ``log t`` with the
-    rest of the tree held fixed.
+    then maximises every branch by golden-section search on ``log t`` in
+    ``[1e-6, 3]`` with the rest of the tree held fixed. Identical columns are
+    collapsed into one weighted site pattern first.
     """
-    tips = tip_likelihoods([alignment[leaf.name] for leaf in tree.leaves()])
-    tip_of = {leaf.name: tips[k] for k, leaf in enumerate(tree.leaves())}
+    leaves = tree.leaves()
+    tips = tip_likelihoods([alignment[leaf.name] for leaf in leaves])
+    patterns, counts = np.unique(tips.transpose(1, 0, 2), axis=0, return_counts=True)
+    tip_of = {leaf.name: patterns[:, k] for k, leaf in enumerate(leaves)}
+    transition = Transition(rates)
     order = list(tree.postorder())
-    lo, hi = np.log(1e-6), np.log(3.0)
     ratio = (np.sqrt(5) - 1) / 2
 
     for _ in range(sweeps):
@@ -127,17 +159,17 @@ def optimise_branch_lengths(tree: Node, alignment: dict[str, str], rates: np.nda
             if node.is_leaf():
                 inside[id(node)] = tip_of[node.name]
             else:
-                like = np.ones_like(tips[0])
+                like = 1.0
                 for child in node.children:
-                    like = like * (inside[id(child)] @ expm(rates * child.length).T)
+                    like = like * (inside[id(child)] @ transition(child.length).T)
                 inside[id(node)] = like / like.max(-1, keepdims=True)
-        outside = {id(tree): np.broadcast_to(freq, tips[0].shape)}
+        outside = {id(tree): np.broadcast_to(freq, inside[id(tree)].shape)}
         for node in reversed(order):  # parents before children
             if node.is_leaf():
                 continue
-            messages = [inside[id(c)] @ expm(rates * c.length).T for c in node.children]
+            messages = [inside[id(c)] @ transition(c.length).T for c in node.children]
             for k, child in enumerate(node.children):
-                above = outside[id(node)].copy()
+                above = outside[id(node)]
                 for m, message in enumerate(messages):
                     if m != k:
                         above = above * message
@@ -145,12 +177,13 @@ def optimise_branch_lengths(tree: Node, alignment: dict[str, str], rates: np.nda
                 below = inside[id(child)]
 
                 def log_like(log_t):
-                    return np.log(((above @ expm(rates * np.exp(log_t))) * below).sum(-1).clip(1e-300)).sum()
+                    site = ((above @ transition(np.exp(log_t))) * below).sum(-1)
+                    return counts @ np.log(site.clip(1e-300))
 
-                a, b = lo, hi
+                a, b = np.log(1e-6), np.log(3.0)
                 x1, x2 = b - ratio * (b - a), a + ratio * (b - a)
                 f1, f2 = log_like(x1), log_like(x2)
-                for _ in range(30):
+                for _ in range(iterations):
                     if f1 < f2:
                         a, x1, f1 = x1, x2, f2
                         x2 = a + ratio * (b - a)
@@ -160,6 +193,6 @@ def optimise_branch_lengths(tree: Node, alignment: dict[str, str], rates: np.nda
                         x1 = b - ratio * (b - a)
                         f1 = log_like(x1)
                 child.length = float(np.exp((a + b) / 2))
-                messages[k] = inside[id(child)] @ expm(rates * child.length).T
-                outside[id(child)] = above @ expm(rates * child.length)
+                messages[k] = inside[id(child)] @ transition(child.length).T
+                outside[id(child)] = above @ transition(child.length)
     return tree

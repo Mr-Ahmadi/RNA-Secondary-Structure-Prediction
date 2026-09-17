@@ -1,11 +1,10 @@
-import itertools
 from collections import Counter
 
 import numpy as np
 import pytest
 
 from ekh.grammar import Grammar, RULES, _count_rules
-from ekh.parser import PassParams, crossing_counts, cyk
+from ekh.parser import PassSettings, crossing_counts, cyk
 
 
 def nested_structures(i, j):
@@ -20,7 +19,7 @@ def nested_structures(i, j):
                 yield [(i, k)] + inner + rest
 
 
-def brute_force_score(pairs, n, single, pair, grammar, params, crossings):
+def brute_force_score(pairs, n, single, pair, grammar, settings, crossings):
     counts = Counter()
     _count_rules(pairs, n, counts)
     score = sum(c * grammar.log(*rule) for rule, c in counts.items())
@@ -28,14 +27,15 @@ def brute_force_score(pairs, n, single, pair, grammar, params, crossings):
     score += sum(single[k] for k in range(n) if k not in paired)
     partner = dict(pairs)
     for i, j in pairs:
-        score += pair[i, j] + crossings[i, j] * np.log(params.flag)
+        score += pair[i, j] + crossings[i, j] * np.log(settings.crossing)
         stacked = partner.get(i + 1) == j - 1
-        score += np.log(params.accelerate if stacked else params.start)
+        score += np.log(settings.extension if stacked else settings.initiation)
     return score
 
 
 @pytest.mark.parametrize("seed", range(6))
-def test_cyk_matches_exhaustive_search(seed):
+@pytest.mark.parametrize("min_hairpin", [2, 3])
+def test_cyk_matches_exhaustive_search(seed, min_hairpin):
     rng = np.random.default_rng(seed)
     n = 9
     probs = {}
@@ -46,17 +46,20 @@ def test_cyk_matches_exhaustive_search(seed):
     single = rng.normal(-1.5, 1.0, n)
     pair = rng.normal(-2.0, 2.0, (n, n))
     crossings = rng.integers(0, 3, (n, n)).astype(float)
-    params = PassParams(start=float(rng.uniform(0.2, 3)), accelerate=float(rng.uniform(0.2, 3)),
-                        flag=float(rng.uniform(0.3, 2)))
+    settings = PassSettings(initiation=float(rng.uniform(0.2, 3)), extension=float(rng.uniform(0.2, 3)),
+                            crossing=float(rng.uniform(0.3, 2)))
+    positions = np.arange(n)
+    allowed = positions[None, :] - positions[:, None] > min_hairpin
 
-    best = max(
-        nested_structures(0, n - 1),
-        key=lambda s: brute_force_score(s, n, single, pair, grammar, params, crossings),
-    )
-    expected = brute_force_score(best, n, single, pair, grammar, params, crossings)
-    score, pairs = cyk(single, pair, grammar, params, crossings)
-    assert score == pytest.approx(expected)
-    assert brute_force_score(pairs, n, single, pair, grammar, params, crossings) == pytest.approx(expected)
+    def score(s):
+        return brute_force_score(s, n, single, pair, grammar, settings, crossings)
+
+    candidates = [s for s in nested_structures(0, n - 1) if all(j - i > min_hairpin for i, j in s)]
+    expected = score(max(candidates, key=score))
+    found_score, pairs = cyk(single, pair, grammar, settings, crossings, allowed)
+    assert found_score == pytest.approx(expected)
+    assert all(j - i > min_hairpin for i, j in pairs)
+    assert score(pairs) == pytest.approx(expected)
 
 
 def test_crossing_counts():

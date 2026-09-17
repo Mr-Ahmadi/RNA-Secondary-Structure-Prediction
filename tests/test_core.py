@@ -2,18 +2,18 @@ import numpy as np
 import pytest
 
 from ekh.alignment import tip_likelihoods
-from ekh.evolution import EvolutionModel, expm
+from ekh.evolution import expm
 from ekh.grammar import Grammar
 from ekh.metrics import compare
 from ekh.model import EKH
-from ekh.structure import dotbracket, nested_part, pairs_from_dotbracket
+from ekh.structure import dotbracket, largest_nested, pairs_from_dotbracket
 from ekh.tree import midpoint_root, neighbour_joining, parse_newick, p_distance_matrix
 
 
 def test_dotbracket_roundtrip_with_pseudoknot():
     s = "((..[[..))..]]"
     pairs = pairs_from_dotbracket(s)
-    nested = nested_part(pairs)
+    nested = largest_nested(pairs)
     assert nested == [(0, 9), (1, 8)]
     assert dotbracket(len(s), nested, sorted(set(pairs) - set(nested))) == s
     with pytest.raises(ValueError):

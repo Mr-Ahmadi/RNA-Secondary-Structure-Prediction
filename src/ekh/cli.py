@@ -3,27 +3,35 @@
 from __future__ import annotations
 
 import argparse
-import itertools
 import json
-import sys
+import os
 import time
-from dataclasses import asdict
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
 
 from .alignment import read_alignment
-from .estimate import Family, estimate_evolution, estimate_grammar
+from .estimate import estimate
 from .metrics import Counts, compare
-from .model import DEFAULT_PARAMS, EKH
-from .parser import PassParams
+from .model import DEFAULT_PARAMS, EKH, Decoding
+from .structure import pairs_from_dotbracket, pseudoknotted_pairs
+from . import tune
 from .tree import parse_newick
 
-TRAINING_FAMILIES = ["RF00001", "RF00005", "RF03000"]
-GRID = [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0]
-FLAG_GRID = [0.25, 0.5, 0.7, 1.0, 1.4, 2.0]
-# Ratios found by the genetic algorithm of the original (2025) notebooks.
-ORIGINAL_GA_RATIOS = (PassParams(0.19, 1.48), PassParams(0.88, 1.78, 0.98))
+TRAINING_SET = "data/benchmark/training.json"
+TUNING_SETS = ["data/benchmark/tuning.json"]
+
+MODEL = "Gap-Bracket"
+KH99 = "KH-99 CYK"
+FIRST_LAYER = "Gap-Bracket, nested layer only"
+NO_REFINEMENT = "Gap-Bracket, no refinement"
+HAIRPIN_2 = "Gap-Bracket, minimum hairpin 2"
+NO_WEIGHT = "Gap-Bracket, evidence weight 1"
+METHOD_NAMES = {"shared-exhaustive": "shared ratios, exhaustive search",
+                "separate-coordinate": "separate ratios, coordinate ascent",
+                "separate-genetic": "separate ratios, genetic algorithm"}
 
 
 def load_benchmark(path: str | Path) -> dict[str, dict]:
@@ -34,7 +42,7 @@ def cmd_predict(args) -> None:
     model = EKH.load(args.params)
     alignment = read_alignment(args.alignment)
     tree = parse_newick(Path(args.tree).read_text()) if args.tree else None
-    prediction = model.predict(alignment, tree=tree, phyml=args.phyml)
+    prediction = model.predict(alignment, tree=tree)
     width = max(map(len, alignment))
     for name, seq in alignment.items():
         print(f"{name:<{width}}  {seq}")
@@ -42,149 +50,181 @@ def cmd_predict(args) -> None:
 
 
 def cmd_estimate(args) -> None:
-    families = [Family.load(args.data, name) for name in args.families]
-    evolution, grammar = estimate_evolution(families), estimate_grammar(families)
+    evolution, grammar, families = estimate(args.training, args.jobs)
     out = Path(args.output)
     previous = json.loads(out.read_text()) if out.exists() else {}
-    previous.update({"training_families": args.families,
+    previous.update({"training": {"set": str(args.training), "families": len(families)},
                      "evolution": evolution.to_json(), "grammar": grammar.to_json()})
+    previous.pop("training_families", None)
     out.write_text(json.dumps(previous, indent=2) + "\n")
-    print(f"wrote {out}")
+    print(f"estimated from {len(families)} training families; wrote {out}")
 
 
-def _score(model: EKH, evidence: dict, data: dict) -> tuple[Counts, dict[str, str]]:
-    total, structures = Counts(), {}
-    for name, ev in evidence.items():
-        structures[name] = model.parse(ev).structure
-        total = total + compare(structures[name], data[name]["structure"])
-    return total, structures
+def _tuning_items(model: EKH, paths: list[str]) -> list[tune.Item]:
+    items = []
+    for path in paths:
+        for name, fam in load_benchmark(path).items():
+            items.append(tune.Item(Path(path).stem, fam.get("clan", name), name, model.evidence(fam["alignment"]),
+                                   frozenset(pairs_from_dotbracket(fam["structure"]))))
+    return items
 
 
 def cmd_tune(args) -> None:
-    """Grid search of the pass ratios on the validation set (pooled pair F1).
+    """Choose the tuning method by leave-one-family-out CV, then tune on all sets.
 
-    The first pass is tuned with the second pass disabled; the second pass is
-    then tuned on top of the chosen first pass. Ties go to the setting closest
-    to the neutral value 1.
+    Writes the chosen fit as the decoding. As baselines it stores the fits of
+    the other methods, the chosen method with the evidence weight fixed at 1
+    (ablation) and the historical settings.
     """
+    started = time.perf_counter()
     model = EKH.load(args.params)
-    data = load_benchmark(args.validation)
-    evidence = {name: model.evidence(fam["alignment"], phyml=args.phyml) for name, fam in data.items()}
-    distance = lambda values: sum(abs(np.log(v)) for v in values)  # noqa: E731
+    methods = tune.METHODS if args.method == "auto" else (args.method,)
+    base = Decoding(refinement_rounds=args.refinement_rounds)
+    with tune.Evaluator(model, _tuning_items(model, args.sets), args.jobs, base) as evaluator:
+        print(f"{len(evaluator.items)} tuning alignments; 10-fold cross-validation grouped by clan")
+        cv = {"neutral (no tuning)": tune.neutral_score(evaluator)}
+        for method in methods:
+            cv[method] = tune.cross_validate(evaluator, method)
+        chosen = max(methods, key=lambda m: (round(cv[m]["objective"], 10), -methods.index(m)))
+        cv[f"{chosen}, evidence weight 1"] = tune.cross_validate(evaluator, chosen, fix_weight=True)
 
-    model.second = None
-    first = max(
-        (PassParams(s, a) for s, a in itertools.product(GRID, GRID)),
-        key=lambda p: (round(_score(_with(model, first=p), evidence, data)[0].f1, 10), -distance([p.start, p.accelerate])),
-    )
-    model.first = first
-    second = max(
-        (PassParams(s, a, f) for s, a, f in itertools.product(GRID, GRID, FLAG_GRID)),
-        key=lambda p: (round(_score(_with(model, second=p), evidence, data)[0].f1, 10),
-                       -distance([p.start, p.accelerate, p.flag])),
-    )
-    one_pass = _score(model, evidence, data)[0]
-    model.second = second
-    two_pass = _score(model, evidence, data)[0]
-    use_second = two_pass.f1 > one_pass.f1
+        fits = {MODEL: (chosen, False), NO_WEIGHT: (chosen, True)}
+        fits.update({f"Gap-Bracket, {METHOD_NAMES[m]}": (m, False) for m in methods if m != chosen})
+        final = {}
+        for label, (method, fix_weight) in fits.items():
+            point = tune.fit(method, evaluator, evaluator.everything, fix_weight)
+            final[label] = {"method": method, "decoding": tune.to_decoding(point, evaluator.base).to_json(),
+                            "tuning_f1": evaluator.set_f1(evaluator.counts([point])[0], evaluator.everything)}
+        n_candidates = len(evaluator.cache)
+
+    summary = {"tuning_sets": args.sets, "chosen_method": chosen, "cross_validation": cv, "fits": final,
+               "candidates_scored": n_candidates, "seconds": round(time.perf_counter() - started, 1)}
+    if args.cv_output:
+        Path(args.cv_output).write_text(json.dumps(summary, indent=2) + "\n")
+    print(f"chosen: {chosen}")
+    print(json.dumps({label: fit["decoding"] for label, fit in final.items()}, indent=2))
+    print(f"{n_candidates} candidates scored in {summary['seconds']} s")
+    if args.dry_run:
+        return
     params_path = Path(args.params)
     params = json.loads(params_path.read_text())
-    params["passes"] = {"first": asdict(first), "second": asdict(second) if use_second else None}
+    params["decoding"] = final[MODEL]["decoding"]
+    params["tuning"] = {"sets": args.sets, "method": chosen, "cross_validated_objective": cv[chosen]["objective"]}
+    params["baselines"] = {label: fit["decoding"] for label, fit in final.items() if label != MODEL}
     params_path.write_text(json.dumps(params, indent=2) + "\n")
-    print(json.dumps({"first": asdict(first), "second": asdict(second),
-                      "validation_f1_one_pass": one_pass.f1, "validation_f1_two_pass": two_pass.f1,
-                      "second_pass_enabled": use_second}, indent=2))
+    print(f"wrote {params_path}")
 
 
-def _with(model: EKH, **passes) -> EKH:
-    return EKH(model.evolution, model.grammar, passes.get("first", model.first),
-               passes.get("second", model.second))
+def evaluation_variants(path: str | Path) -> dict[str, EKH]:
+    """The model, its ablations, and the decodings stored as baselines by ``ekh tune``."""
+    base = EKH.load(path)
+    d = base.decoding
+    variants = {KH99: Decoding.kh99(), MODEL: d, FIRST_LAYER: replace(d, second=None, refinement_rounds=0)}
+    if d.refinement_rounds:
+        variants[NO_REFINEMENT] = replace(d, refinement_rounds=0)
+    variants[HAIRPIN_2] = replace(d, min_hairpin=2)
+    baselines = json.loads(Path(path).read_text()).get("baselines", {})
+    variants.update({label: Decoding.from_json(v) for label, v in baselines.items()})
+    return {label: base.with_decoding(decoding) for label, decoding in variants.items()}
+
+
+def _predict_all(job: tuple) -> dict:
+    """Worker: predictions of every variant for one alignment."""
+    params, alignment = job
+    variants = evaluation_variants(params)
+    started = time.perf_counter()
+    evidence = variants[MODEL].evidence(alignment)
+    evidence_seconds = time.perf_counter() - started
+    out = {}
+    for label, model in variants.items():
+        started = time.perf_counter()
+        structure = model.parse(evidence).structure
+        out[label] = {"structure": structure, "seconds": evidence_seconds + time.perf_counter() - started}
+    return out
 
 
 def cmd_evaluate(args) -> None:
-    base = EKH.load(args.params)
-    variants = {
-        "KH-99 CYK (1 pass, no ratios)": EKH(base.evolution, base.grammar, PassParams(), None),
-        "Gap-Bracket, 1st pass only": EKH(base.evolution, base.grammar, base.first, None),
-        "Gap-Bracket, 2 passes": EKH(base.evolution, base.grammar, base.first,
-                                      base.second or PassParams()),
-        "Gap-Bracket, 2 passes, 2025 GA ratios": EKH(base.evolution, base.grammar, *ORIGINAL_GA_RATIOS),
-    }
-    report = {"params": str(args.params), "sets": {}}
+    report = {"params": Path(args.params).name, "sets": {}}
     for set_path in args.sets:
-        data = {k: v for k, v in load_benchmark(set_path).items() if k not in args.exclude}
-        started = time.perf_counter()
-        evidence = {name: base.evidence(fam["alignment"], phyml=args.phyml) for name, fam in data.items()}
-        evidence_seconds = time.perf_counter() - started
-        result = {"evidence_seconds": evidence_seconds, "variants": {}}
-        for label, model in variants.items():
-            started = time.perf_counter()
-            families = {}
-            total = Counts()
-            for name, ev in evidence.items():
-                prediction = model.parse(ev)
-                counts = compare(prediction.structure, data[name]["structure"])
+        data = load_benchmark(set_path)
+        names = sorted(data)
+        with ProcessPoolExecutor(args.jobs or min(8, os.cpu_count() or 1)) as pool:
+            rows = list(pool.map(_predict_all, [(args.params, data[n]["alignment"]) for n in names]))
+        predictions: dict[str, dict] = {label: {} for label in rows[0]}
+        for name, row in zip(names, rows):
+            for label, prediction in row.items():
+                predictions[label][name] = prediction
+        external = Path(args.baselines) / f"{Path(set_path).stem}.json" if args.baselines else None
+        if external and external.exists():
+            predictions.update(json.loads(external.read_text()))
+
+        result = {}
+        for label, by_name in predictions.items():
+            total, alignments = Counts(), {}
+            for name in names:
+                counts = compare(by_name[name]["structure"], data[name]["structure"])
                 total = total + counts
-                families[name] = {
-                    "reference": data[name]["structure"], "predicted": prediction.structure,
-                    "n_seqs": len(data[name]["alignment"]), "length": len(prediction.structure),
-                    "precision": counts.precision, "recall": counts.recall,
-                    "f1": counts.f1, "weighted_f1": counts.weighted_f1,
-                }
-            result["variants"][label] = {
-                "parse_seconds": time.perf_counter() - started,
-                "pooled": {"precision": total.precision, "recall": total.recall,
-                           "f1": total.f1, "weighted_f1": total.weighted_f1},
-                "mean_family_f1": float(np.mean([f["f1"] for f in families.values()])),
-                "families": families,
-            }
-        report["sets"][Path(set_path).stem] = result
-    text = json.dumps(report, indent=2)
+                alignments[name] = {"predicted": by_name[name]["structure"], "seconds": by_name[name]["seconds"],
+                                    "counts": asdict(counts)}
+            result[label] = {"pooled": total.summary(),
+                             "mean_f1": float(np.mean([compare(by_name[n]["structure"], data[n]["structure"]).f1
+                                                       for n in names])),
+                             "seconds": float(sum(a["seconds"] for a in alignments.values())),
+                             "alignments": alignments}
+        report["sets"][Path(set_path).stem] = {
+            "references": {n: {"structure": data[n]["structure"], "pseudoknot": bool(pseudoknotted_pairs(pairs_from_dotbracket(data[n]["structure"]))),
+                               "sequences": len(data[n]["alignment"]), "columns": len(data[n]["structure"])}
+                           for n in names},
+            "methods": result}
     if args.output:
-        Path(args.output).write_text(text + "\n")
+        Path(args.output).write_text(json.dumps(report, indent=1) + "\n")
     _print_summary(report)
 
 
 def _print_summary(report: dict) -> None:
     for set_name, result in report["sets"].items():
-        print(f"\n== {set_name} (evidence {result['evidence_seconds']:.2f}s)")
-        for label, v in result["variants"].items():
+        refs = result["references"]
+        print(f"\n== {set_name}: {len(refs)} alignments, {sum(r['pseudoknot'] for r in refs.values())} with pseudoknots")
+        print(f"{'method':<44} {'PPV':>6} {'Sens':>6} {'F1':>6} | {'PK PPV':>6} {'PK Sen':>6} {'PK F1':>6} "
+              f"| {'det.Se':>6} {'det.Sp':>6} | {'time':>7}")
+        for label, v in result["methods"].items():
             p = v["pooled"]
-            print(f"{label:<38} P={p['precision']:.3f} R={p['recall']:.3f} F1={p['f1']:.3f} "
-                  f"meanF1={v['mean_family_f1']:.3f} weightedF1={p['weighted_f1']:.3f} "
-                  f"({v['parse_seconds']:.2f}s)")
+            print(f"{label:<44} {p['ppv']:6.3f} {p['sensitivity']:6.3f} {p['f1']:6.3f} | {p['pk_ppv']:6.3f} "
+                  f"{p['pk_sensitivity']:6.3f} {p['pk_f1']:6.3f} | {p['pk_detection_sensitivity']:6.3f} "
+                  f"{p['pk_detection_specificity']:6.3f} | {v['seconds']:6.1f}s")
 
 
 def main(argv: list[str] | None = None) -> None:
-    sys.setrecursionlimit(100_000)  # Newick parsing of large seed trees
     parser = argparse.ArgumentParser(prog="ekh", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    phyml_help = "PhyML binary for ML trees (default: neighbour joining + ML branch lengths)"
 
     p = sub.add_parser("predict", help="predict the consensus structure of an alignment")
     p.add_argument("alignment", help="FASTA, Stockholm or PHYLIP alignment")
-    p.add_argument("--tree", help="Newick tree for the alignment")
-    p.add_argument("--phyml", help=phyml_help)
+    p.add_argument("--tree", help="Newick tree (e.g. from PhyML or IQ-TREE); default: built-in ML tree")
     p.add_argument("--params", default=DEFAULT_PARAMS)
     p.set_defaults(func=cmd_predict)
 
-    p = sub.add_parser("estimate", help="estimate evolution and grammar parameters")
-    p.add_argument("--data", default="data/training")
-    p.add_argument("--families", nargs="+", default=TRAINING_FAMILIES)
+    p = sub.add_parser("estimate", help="estimate the substitution model and grammar")
+    p.add_argument("--training", default=TRAINING_SET, help="benchmark JSON file of training families")
+    p.add_argument("--jobs", type=int, default=None)
     p.add_argument("--output", default=DEFAULT_PARAMS)
     p.set_defaults(func=cmd_estimate)
 
-    p = sub.add_parser("tune", help="tune pass ratios on the validation set")
-    p.add_argument("--validation", default="data/benchmark/validation.json")
-    p.add_argument("--phyml", help=phyml_help)
+    p = sub.add_parser("tune", help="tune the decoding settings on held-out families")
+    p.add_argument("--sets", nargs="+", default=TUNING_SETS, help="benchmark JSON files to tune on")
+    p.add_argument("--method", default="auto", choices=("auto",) + tune.METHODS)
+    p.add_argument("--refinement-rounds", type=int, default=0, help="joint layer refinement rounds (fixed)")
+    p.add_argument("--jobs", type=int, default=None, help="worker processes (default: up to 8)")
+    p.add_argument("--cv-output", default="results/tuning_cv.json")
     p.add_argument("--params", default=DEFAULT_PARAMS)
+    p.add_argument("--dry-run", action="store_true", help="do not write --params")
     p.set_defaults(func=cmd_tune)
 
-    p = sub.add_parser("evaluate", help="score the model on benchmark sets")
+    p = sub.add_parser("evaluate", help="score the model, its ablations and baselines on benchmark sets")
     p.add_argument("sets", nargs="+")
-    p.add_argument("--phyml", help=phyml_help)
     p.add_argument("--params", default=DEFAULT_PARAMS)
-    p.add_argument("--exclude", nargs="*", default=[], help="families to leave out")
+    p.add_argument("--baselines", default="results/baselines", help="directory of external predictions")
+    p.add_argument("--jobs", type=int, default=None)
     p.add_argument("--output")
     p.set_defaults(func=cmd_evaluate)
 

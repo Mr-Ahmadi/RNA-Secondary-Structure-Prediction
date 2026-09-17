@@ -1,0 +1,782 @@
+{
+  "tuning_sets": [
+    "data/benchmark/tuning.json"
+  ],
+  "chosen_method": "shared-exhaustive",
+  "cross_validation": {
+    "neutral (no tuning)": {
+      "f1": {
+        "tuning": 0.7278481012658228
+      },
+      "objective": 0.7278481012658228
+    },
+    "shared-exhaustive": {
+      "f1": {
+        "tuning": 0.7545570156846121
+      },
+      "objective": 0.7545570156846121,
+      "distinct_settings": 5,
+      "fold_decodings": [
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 2.0,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 2.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.9,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 3.175,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 3.175,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.5,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.562,
+          "refinement_rounds": 0
+        }
+      ]
+    },
+    "separate-coordinate": {
+      "f1": {
+        "tuning": 0.7445255474452555
+      },
+      "objective": 0.7445255474452555,
+      "distinct_settings": 6,
+      "fold_decodings": [
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.63,
+            "extension": 0.5,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 3.175,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 0.315,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 0.63,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 0.63,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 0.63,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.198,
+            "extension": 0.794,
+            "crossing": 0.794
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 0.63,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.315,
+            "extension": 0.315,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 0.63,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.397,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.794,
+            "extension": 1.0,
+            "crossing": 0.794
+          },
+          "evidence_weight": 0.8,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        }
+      ]
+    },
+    "separate-genetic": {
+      "f1": {
+        "tuning": 0.7545454545454545
+      },
+      "objective": 0.7545454545454545,
+      "distinct_settings": 9,
+      "fold_decodings": [
+        {
+          "first": {
+            "initiation": 0.63,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 2.52,
+            "extension": 2.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.794,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 6.35,
+            "extension": 6.35,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.1,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.63,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.198,
+            "extension": 1.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.63,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 6.35,
+            "extension": 6.35,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.1,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.794,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 6.35,
+            "extension": 6.35,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.1,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 1.0,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.198,
+            "extension": 1.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 1.0,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 1.0,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 1.26,
+            "extension": 4.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.178,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.63,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 1.26,
+            "extension": 4.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.178,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.794,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 1.0,
+            "extension": 5.04,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.178,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.794,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 2.52,
+            "extension": 4.0,
+            "crossing": 1.0
+          },
+          "evidence_weight": 0.7,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.178,
+          "refinement_rounds": 0
+        }
+      ]
+    },
+    "shared-exhaustive, evidence weight 1": {
+      "f1": {
+        "tuning": 0.7529656607700312
+      },
+      "objective": 0.7529656607700312,
+      "distinct_settings": 4,
+      "fold_decodings": [
+        {
+          "first": {
+            "initiation": 0.5,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.5,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.157,
+            "extension": 1.26,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        },
+        {
+          "first": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "second": {
+            "initiation": 0.25,
+            "extension": 1.587,
+            "crossing": 1.0
+          },
+          "evidence_weight": 1.0,
+          "min_hairpin": 3,
+          "pseudoknot_ratio": 0.316,
+          "refinement_rounds": 0
+        }
+      ]
+    }
+  },
+  "fits": {
+    "Gap-Bracket": {
+      "method": "shared-exhaustive",
+      "decoding": {
+        "first": {
+          "initiation": 0.157,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "second": {
+          "initiation": 0.157,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "evidence_weight": 0.8,
+        "min_hairpin": 3,
+        "pseudoknot_ratio": 0.562,
+        "refinement_rounds": 0
+      },
+      "tuning_f1": {
+        "tuning": 0.7718262336566849
+      }
+    },
+    "Gap-Bracket, evidence weight 1": {
+      "method": "shared-exhaustive",
+      "decoding": {
+        "first": {
+          "initiation": 0.25,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "second": {
+          "initiation": 0.25,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "evidence_weight": 1.0,
+        "min_hairpin": 3,
+        "pseudoknot_ratio": 0.316,
+        "refinement_rounds": 0
+      },
+      "tuning_f1": {
+        "tuning": 0.7655384615384615
+      }
+    },
+    "Gap-Bracket, separate ratios, coordinate ascent": {
+      "method": "separate-coordinate",
+      "decoding": {
+        "first": {
+          "initiation": 0.157,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "second": {
+          "initiation": 0.25,
+          "extension": 0.63,
+          "crossing": 1.0
+        },
+        "evidence_weight": 0.8,
+        "min_hairpin": 3,
+        "pseudoknot_ratio": 1.0,
+        "refinement_rounds": 0
+      },
+      "tuning_f1": {
+        "tuning": 0.7724778387505277
+      }
+    },
+    "Gap-Bracket, separate ratios, genetic algorithm": {
+      "method": "separate-genetic",
+      "decoding": {
+        "first": {
+          "initiation": 0.794,
+          "extension": 1.587,
+          "crossing": 1.0
+        },
+        "second": {
+          "initiation": 6.35,
+          "extension": 6.35,
+          "crossing": 1.0
+        },
+        "evidence_weight": 0.7,
+        "min_hairpin": 3,
+        "pseudoknot_ratio": 0.1,
+        "refinement_rounds": 0
+      },
+      "tuning_f1": {
+        "tuning": 0.7714987714987716
+      }
+    }
+  },
+  "candidates_scored": 31830,
+  "seconds": 1048.0
+}

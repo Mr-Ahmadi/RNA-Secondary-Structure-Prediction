@@ -1,12 +1,8 @@
-"""Phylogenetic trees: Newick I/O, neighbour joining and midpoint rooting."""
+"""Phylogenetic trees: Newick parsing, neighbour joining and midpoint rooting."""
 
 from __future__ import annotations
 
-import shutil
-import subprocess
-import tempfile
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import numpy as np
 
@@ -31,47 +27,50 @@ class Node:
     def leaves(self) -> list["Node"]:
         return [n for n in self.postorder() if n.is_leaf()]
 
-    def newick(self) -> str:
-        def fmt(node: Node) -> str:
-            label = node.name or ""
-            if node.children:
-                label = "(" + ",".join(fmt(c) for c in node.children) + ")" + label
-            return f"{label}:{node.length:.8f}"
-
-        return fmt(self).rsplit(":", 1)[0] + ";"
-
 
 def parse_newick(text: str) -> Node:
-    """Parse Newick; internal-node labels (e.g. bootstrap values) are ignored."""
+    """Parse Newick; internal-node labels (e.g. bootstrap values) are ignored.
+
+    The parser keeps an explicit stack, so deep (caterpillar) trees of large
+    seed alignments do not hit Python's recursion limit.
+    """
     text = text.strip().rstrip(";")
+    root = current = Node()  # "(" makes the current node internal
+    parents: list[Node] = []
     pos = 0
 
     def label() -> str:
         nonlocal pos
         start = pos
-        while pos < len(text) and text[pos] not in ",():;":
+        while pos < len(text) and text[pos] not in ",():":
             pos += 1
         return text[start:pos].strip()
 
-    def subtree() -> Node:
-        nonlocal pos
-        node = Node()
-        if text[pos] == "(":
+    while pos < len(text):
+        char = text[pos]
+        if char == "(":
+            child = Node()
+            current.children.append(child)
+            parents.append(current)
+            current = child
             pos += 1
-            node.children.append(subtree())
-            while text[pos] == ",":
-                pos += 1
-                node.children.append(subtree())
-            pos += 1  # ')'
-            label()
+        elif char == ",":
+            child = Node()
+            parents[-1].children.append(child)
+            current = child
+            pos += 1
+        elif char == ")":
+            current = parents.pop()
+            pos += 1
+            label()  # internal label, ignored
+        elif char == ":":
+            pos += 1
+            current.length = float(label())
         else:
-            node.name = label()
-        if pos < len(text) and text[pos] == ":":
-            pos += 1
-            node.length = float(label())
-        return node
-
-    return subtree()
+            current.name = label()
+    if parents:
+        raise ValueError("unbalanced parentheses in Newick tree")
+    return root
 
 
 def p_distance_matrix(sequences: list[str]) -> np.ndarray:
@@ -144,65 +143,30 @@ def midpoint_root(tree: Node) -> Node:
         return tree
     # Walk from b back towards a until the midpoint edge is found.
     remaining, node = total / 2, b
-    while parent[id(node)] is not None:
+    while True:
         up, length = parent[id(node)]
-        if length >= remaining:
+        if length >= remaining or parent[id(up)] is None:  # guard against rounding
+            remaining = min(remaining, length)
             break
         remaining -= length
         node = up
-    up, length = parent[id(node)]
 
-    def build(current: Node, came_from: Node | None, length_to_parent: float) -> Node:
-        new = Node(name=current.name if current.is_leaf() else None, length=length_to_parent)
+    new_root = Node(children=[Node(length=remaining), Node(length=length - remaining)])
+    stack = [(node, up, new_root.children[0]), (up, node, new_root.children[1])]
+    while stack:  # copy the tree, re-oriented away from the new root
+        current, came_from, copy = stack.pop()
+        copy.name = current.name if current.is_leaf() else None
         for nxt, edge in adjacency.get(id(current), []):
             if nxt is not came_from:
-                new.children.append(build(nxt, current, edge))
-        return new
+                child = Node(length=edge)
+                copy.children.append(child)
+                stack.append((nxt, current, child))
+    return new_root
 
-    return Node(children=[build(node, up, remaining), build(up, node, length - remaining)])
 
-
-def estimate_tree(alignment: dict[str, str], phyml: str | None = None) -> Node:
-    """Midpoint-rooted tree: PhyML (GTR) when a binary is given, otherwise NJ."""
+def nj_tree(alignment: dict[str, str]) -> Node:
+    """Midpoint-rooted neighbour-joining tree from Jukes-Cantor distances."""
     names = list(alignment)
-    if len(names) < 3 or phyml is None:
-        if len(names) == 1:
-            return Node(children=[Node(name=names[0])])
-        return midpoint_root(neighbour_joining(names, p_distance_matrix(list(alignment.values()))))
-    return midpoint_root(_run_phyml(alignment, phyml))
-
-
-def _run_phyml(alignment: dict[str, str], phyml: str) -> Node:
-    binary = shutil.which(phyml) or phyml
-    ids = {f"s{k}": name for k, name in enumerate(alignment)}
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "aln.phy"
-        rows = [f"{sid}  {alignment[name]}" for sid, name in ids.items()]
-        path.write_text(f"{len(ids)} {len(next(iter(alignment.values())))}\n" + "\n".join(rows) + "\n")
-        subprocess.run([binary, "-i", str(path), "-m", "GTR", "-b", "0"],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        tree = parse_newick((Path(tmp) / "aln.phy_phyml_tree.txt").read_text())
-    for leaf in tree.leaves():
-        leaf.name = ids[leaf.name]
-    return tree
-
-
-def pairwise_leaf_distances(tree: Node) -> dict[tuple[str, str], float]:
-    """Patristic distances between all pairs of leaves."""
-    depth: dict[int, float] = {id(tree): 0.0}
-    ancestors: dict[int, list[Node]] = {id(tree): [tree]}
-    stack = [tree]
-    while stack:
-        node = stack.pop()
-        for child in node.children:
-            depth[id(child)] = depth[id(node)] + child.length
-            ancestors[id(child)] = ancestors[id(node)] + [child]
-            stack.append(child)
-    leaves = tree.leaves()
-    out = {}
-    for a in leaves:
-        anc_a = {id(x) for x in ancestors[id(a)]}
-        for b in leaves:
-            lca = next(x for x in reversed(ancestors[id(b)]) if id(x) in anc_a)
-            out[a.name, b.name] = depth[id(a)] + depth[id(b)] - 2 * depth[id(lca)]
-    return out
+    if len(names) == 1:
+        return Node(children=[Node(name=names[0])])
+    return midpoint_root(neighbour_joining(names, p_distance_matrix(list(alignment.values()))))

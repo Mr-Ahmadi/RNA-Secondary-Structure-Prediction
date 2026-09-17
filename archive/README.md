@@ -10,5 +10,5 @@ reference. They are superseded by the `ekh` package in `src/`.
 The notebooks `os.chdir` into an absolute path and call bundled PhyML binaries
 (`EKH-25/phyml` for macOS x86-64, `KH-99/phyml.exe` for Windows). They need
 `biopython`, `scipy`, `networkx` and `matplotlib`. The training data they use
-is also in `data/training/`, and their validation and test sets are in
-`data/benchmark/`.
+is also in `data/legacy/training/`, and their validation and test sets are in
+`data/legacy/`.

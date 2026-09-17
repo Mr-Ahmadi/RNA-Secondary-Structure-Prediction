@@ -1,13 +1,14 @@
-"""Estimate the evolutionary model and grammar from Rfam seed families.
+"""Estimate the substitution model and grammar from training families.
 
 For each family we need an alignment, its consensus structure and a tree.
 Every family gets the same total weight (1000 split over its sequences), so
 large families do not dominate.
 
 Frequencies are counted over all sequences. Substitution rates follow Knudsen
-& Hein (1999): for ordered pairs of sequences with at least 85% identity, count
-the substitutions ``X -> Y`` in unpaired columns (and ``XY -> X'Y'`` in paired
-columns) and divide by the expected exposure,
+& Hein (1999): for ordered pairs of sequences with at least 85% identity (over
+columns where both have a base), count the substitutions ``X -> Y`` in
+unpaired columns (and ``XY -> X'Y'`` in paired columns) and divide by the
+expected exposure,
 
     R_XY = c_XY / (P_s * P_X * sum_p t_p N_p),     R_XX = -sum_{Y != X} R_XY
 
@@ -17,20 +18,27 @@ Counts from a sequence are averaged over its similar partners. Paired
 counts are symmetrised (``XY -> X'Y'`` also counts ``YX -> Y'X'``).
 Ambiguous IUPAC symbols are spread uniformly over compatible nucleotides and
 gaps are skipped.
+
+Trees are estimated in two stages (:func:`estimate`): neighbour joining on
+Jukes-Cantor distances gives a first model, whose unpaired-column rates then
+set maximum-likelihood branch lengths for the final estimate.
 """
 
 from __future__ import annotations
 
+import json
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-from .alignment import read_phylip, tip_likelihoods
-from .evolution import EvolutionModel
+from .alignment import tip_likelihoods
+from .evolution import EvolutionModel, optimise_branch_lengths
 from .grammar import Grammar
-from .structure import nested_part, pairs_from_dotbracket
-from .tree import Node, parse_newick
+from .structure import largest_nested, pairs_from_dotbracket
+from .tree import Node, midpoint_root, neighbour_joining, p_distance_matrix
 
 IDENTITY_THRESHOLD = 0.85
 FAMILY_WEIGHT = 1000.0
@@ -44,15 +52,31 @@ class Family:
     structure: str
     tree: Node
 
-    @classmethod
-    def load(cls, root: str | Path, name: str) -> "Family":
-        root = Path(root)
-        return cls(
-            name,
-            read_phylip(root / "alignments" / f"{name}.phylip"),
-            (root / "structures" / f"{name}.structure").read_text().strip(),
-            parse_newick((root / "trees" / f"{name}.nwk").read_text()),
-        )
+
+def _tree(job: tuple) -> Node:
+    """Neighbour-joining tree; with rates, maximum-likelihood branch lengths."""
+    alignment, rates, freq = job
+    names = list(alignment)
+    tree = neighbour_joining(names, p_distance_matrix([alignment[n] for n in names]))
+    if rates is not None:
+        optimise_branch_lengths(tree, alignment, rates, freq)
+    return midpoint_root(tree)
+
+
+def estimate(training: str | Path, jobs: int | None = None) -> tuple[EvolutionModel, Grammar, list[str]]:
+    """Two-stage estimate from a benchmark JSON file of training families."""
+    data = json.loads(Path(training).read_text())
+    names = sorted(data)
+    alignments = [data[n]["alignment"] for n in names]
+    with ProcessPoolExecutor(jobs or min(8, os.cpu_count() or 1)) as pool:
+        model = None
+        for _ in range(2):
+            jobs_ = [(a, None if model is None else model.single_rates, None if model is None else model.single_freq)
+                     for a in alignments]
+            trees = list(pool.map(_tree, jobs_))
+            families = [Family(n, a, data[n]["structure"], t) for n, a, t in zip(names, alignments, trees)]
+            model = estimate_evolution(families)
+    return model, estimate_grammar(families), names
 
 
 def _base_weights(sequences: list[str]) -> np.ndarray:
@@ -96,7 +120,7 @@ def estimate_evolution(families: list[Family]) -> EvolutionModel:
         names = list(family.alignment)
         sequences = [family.alignment[n] for n in names]
         weight = FAMILY_WEIGHT / len(sequences)
-        pairs = nested_part(pairs_from_dotbracket(family.structure))
+        pairs = derivable(pairs_from_dotbracket(family.structure))
         left, right = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
         unpaired = np.setdiff1d(np.arange(len(family.structure)), np.concatenate([left, right]))
 
@@ -109,8 +133,9 @@ def estimate_evolution(families: list[Family]) -> EvolutionModel:
         pair_count += weight * dinuc_sym.sum((0, 1))
 
         codes = np.array([np.frombuffer(s.encode(), dtype=np.uint8) for s in sequences])
-        identity = sum(((codes == c) * 1.0) @ (codes == c).T for c in np.unique(codes))
-        similar = identity / codes.shape[1] >= IDENTITY_THRESHOLD
+        is_base = (codes != ord("-")) * 1.0
+        matches = sum(((codes == c) * 1.0) @ (codes == c).T for c in np.unique(codes) if c != ord("-"))
+        similar = matches / np.maximum(is_base @ is_base.T, 1) >= IDENTITY_THRESHOLD
         np.fill_diagonal(similar, False)
         distance = _leaf_distances(family.tree, names)
 
@@ -146,6 +171,16 @@ def estimate_evolution(families: list[Family]) -> EvolutionModel:
     )
 
 
+def derivable(pairs: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Nested pairs without hairpins of fewer than two columns, which KH-99 cannot derive."""
+    kept = sorted(largest_nested(pairs))
+    while True:
+        short = {(i, j) for i, j in kept if j - i < 3 and not any(i < k < j for p in kept for k in p)}
+        if not short:
+            return kept
+        kept = [p for p in kept if p not in short]
+
+
 def estimate_grammar(families: list[Family]) -> Grammar:
-    structures = [nested_part(pairs_from_dotbracket(f.structure)) for f in families]
+    structures = [derivable(pairs_from_dotbracket(f.structure)) for f in families]
     return Grammar.estimate(structures, [len(f.structure) for f in families])
